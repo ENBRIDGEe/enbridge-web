@@ -128,3 +128,56 @@ export async function fetchPublicProfile() {
 		method: "GET",
 	});
 }
+
+// Analytics API
+
+export type FocusSessionResponse = {
+	message: string;
+	session_id: string;
+	daily_total_minutes: number;
+};
+
+export type FocusTimeData = {
+	date: string;
+	total_minutes: number;
+	sessions_count: number;
+	avg_session_minutes: number;
+	focus_time_display: string;
+};
+
+export async function recordFocusSession(
+	sessionDurationMinutes: number,
+	completedAt: string,
+	date: string,
+) {
+	return apiRequest<FocusSessionResponse>("/analytics/focus-sessions", {
+		method: "POST",
+		body: JSON.stringify({
+			session_duration_minutes: sessionDurationMinutes,
+			completed_at: completedAt,
+			date,
+		}),
+		auth: true,
+	});
+}
+
+export async function fetchFocusTime(
+	date?: string,
+	range?: "day" | "week" | "month",
+) {
+	const params = new URLSearchParams();
+	if (date) {
+		params.set("date", date);
+	}
+	if (range) {
+		params.set("range", range);
+	}
+
+	const queryString = params.toString();
+	const url = `/analytics/focus-time${queryString ? `?${queryString}` : ""}`;
+
+	return apiRequest<FocusTimeData>(url, {
+		method: "GET",
+		auth: true,
+	});
+}
