@@ -13,24 +13,16 @@ export function LandingPage() {
 				<div className="page-shell relative py-14 sm:py-20 lg:py-24">
 					<div className="grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
 						<div className="space-y-8">
-							<div className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.35em] text-smoke">
-								MVP only
-								<span className="h-1.5 w-1.5 rounded-full bg-glow shadow-[0_0_18px_rgba(135,240,122,0.75)]" />
-								Student productivity
-							</div>
-
 							<div className="space-y-6">
-								<p className="section-label">Enbridge</p>
 								<h1 className="display-heading max-w-4xl">
-									crafted for the
+									Bridging you to your
 									<br />
-									disciplined student.
+									maximum potential.
 								</h1>
 								<p className="max-w-2xl text-lg leading-8 text-smoke sm:text-xl">
-									A CRED-inspired productivity experience for
-									students who want their tasks, habits, focus
-									sessions, and daily momentum in one calm,
-									premium control room.
+									Enbridge creates a personalized roadmap that
+									guides you every step of the way — so you
+									can achieve what matters most.
 								</p>
 							</div>
 
@@ -41,16 +33,6 @@ export function LandingPage() {
 								<a href="#mvp" className="button-secondary">
 									Explore the flow
 								</a>
-							</div>
-
-							<div className="grid gap-3 sm:grid-cols-3">
-								{ctaStats.map((stat) => (
-									<StatPill
-										key={stat.label}
-										label={stat.label}
-										value={stat.value}
-									/>
-								))}
 							</div>
 						</div>
 
@@ -114,9 +96,9 @@ export function LandingPage() {
 				className="page-shell py-14 sm:py-20 lg:py-24"
 			>
 				<SectionHeading
-					eyebrow="Why it feels premium"
-					title="A minimal interface with enough gravity to make productivity feel deliberate."
-					description="The MVP keeps the surface clean and focused: one dashboard, one task system, one habit layer, one focus experience, and one review loop."
+					eyebrow="Why it works"
+					title="Built around every dimension of your life, not just your to-do list."
+					description="Enbridge considers what matters most — emotional well-being, physical health, mental clarity, relationships, and productivity — and weaves them into one coherent plan."
 				/>
 				<div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 					{appHighlights.map((item) => (
@@ -131,9 +113,9 @@ export function LandingPage() {
 
 			<section id="mvp" className="page-shell py-14 sm:py-20 lg:py-24">
 				<SectionHeading
-					eyebrow="MVP scope"
-					title="Only the essentials for launch, built as reusable routes and components."
-					description="Advanced AI, social, and recovery features stay out of this first pass so the product feels focused and shippable."
+					eyebrow="For every you"
+					title="One platform. Every version of you.."
+					description="Whatever your goal, Enbridge helps you get there — with a roadmap built specifically around your life."
 				/>
 				<div className="mt-10 grid gap-4 lg:grid-cols-2">
 					{mvpModules.map((module, index) => (
@@ -157,16 +139,16 @@ export function LandingPage() {
 
 			<section id="flow" className="page-shell py-14 sm:py-20 lg:py-24">
 				<SectionHeading
-					eyebrow="Next step"
-					title="The app shell is ready to expand into onboarding, dashboard, tasks, habits, and focus."
-					description="From here, the next pass can flesh out the dashboard and core MVP flows without changing the design system or routing structure."
+					eyebrow="Your roadmap"
+					title="Set your goal. Get your plan. Take action. Achieve."
+					description="Four clear stages. A personalized path. Daily guidance and smart reminders so nothing falls through the cracks."
 				/>
 				<div className="mt-10 flex flex-col gap-4 sm:flex-row">
 					<Link to="/app/dashboard" className="button-primary">
-						Open dashboard shell
+						Set Your Goal
 					</Link>
 					<Link to="/login" className="button-secondary">
-						See auth screens
+						See How It Works
 					</Link>
 				</div>
 			</section>

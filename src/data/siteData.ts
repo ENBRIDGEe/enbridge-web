@@ -1,35 +1,31 @@
 export const appHighlights = [
 	{
-		title: "Daily task control",
+		title: "Smart Reminders",
 		description:
-			"Plan study blocks, chores, and personal routines in a single student-first dashboard.",
+			"Stay on track with timely nudges that keep you moving toward your goal every single day.",
 	},
 	{
-		title: "Habit streaks",
+		title: "Daily Motivation",
 		description:
-			"Track repeatable routines with streak pressure, gentle momentum, and simple progress rings.",
+			"Inspiring quotes and positive thoughts delivered at the right moment to keep your momentum alive.",
 	},
 	{
-		title: "Focus sessions",
+		title: "Track Progress",
 		description:
-			"Run distraction-free sessions with a timer, break cadence, and a clean completion flow.",
+			"See your growth clearly. Visual tracking shows how far you've come and what's next.",
 	},
 	{
-		title: "Daily review",
+		title: "Adapt & Improve",
 		description:
-			"Close the day with missed tasks, wins, mood check-ins, and tomorrow planning.",
+			"Your plan evolves as you do. Enbridge adjusts your roadmap based on real progress, not rigid schedules.",
 	},
 ];
 
 export const mvpModules = [
-	"Login and register",
-	"Dashboard",
-	"Task creation",
-	"Notifications",
-	"Focus timer",
-	"Habit tracking",
-	"Daily analytics",
-	"Streak system",
+	"Students — Ace your studies, build skills, shape your future.",
+	" Professionals — Grow your career, lead with impact.",
+	"Employees — Stay productive, balanced, and fulfilled.",
+	"Everyday You — Build better habits, better health, a better life.",
 ];
 
 export const ctaStats = [
