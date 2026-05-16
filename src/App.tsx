@@ -8,7 +8,6 @@ import { LandingPage } from "./pages/LandingPage";
 import { TasksPage } from "./pages/TasksPage";
 import { HabitsPage } from "./pages/HabitsPage";
 import { FocusPage } from "./pages/FocusPage";
-import { AnalyticsPage } from "./pages/AnalyticsPage";
 import { SettingsPage } from "./pages/SettingsPage";
 
 export default function App() {
@@ -67,14 +66,6 @@ export default function App() {
 					element={
 						<ProtectedRoute>
 							<FocusPage />
-						</ProtectedRoute>
-					}
-				/>
-				<Route
-					path="/app/analytics"
-					element={
-						<ProtectedRoute>
-							<AnalyticsPage />
 						</ProtectedRoute>
 					}
 				/>

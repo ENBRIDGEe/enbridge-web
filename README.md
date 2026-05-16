@@ -93,6 +93,30 @@ Frontend dashboard recommendation:
     - GET `/goals/{goal_id}` — Read a specific goal (requires auth)
     - PATCH `/goals/{goal_id}` — Update a goal (body: `GoalUpdate`)
     - DELETE `/goals/{goal_id}` — Delete goal
+    - Activity / Heatmap support
+        - Normalized activity table: `goal_activity` (created by backend migrations)
+            - Columns: `id` (uuid primary key), `goal_id` (uuid FK -> goals.id), `activity_date` (date), `created_at` (timestamp)
+            - Unique constraint: `(goal_id, activity_date)` so a date is recorded only once per goal.
+        - Endpoints (require auth / ownership):
+            - POST `/goals/{goal_id}/activity` — add a completed date (body: `GoalActivityCreate` { goal_id, activity_date })
+            - DELETE `/goals/{goal_id}/activity` — remove a completed date (body: `GoalActivityCreate`)
+            - GET `/goals/{goal_id}/activity?start=YYYY-MM-DD&end=YYYY-MM-DD` — list activity dates in the range; response: `{ dates: ["2026-05-01", ...], count: N }`
+
+        - Example: mark today as done
+
+```bash
+curl -X POST http://localhost:8000/goals/<goal_id>/activity \
+  -H "Content-Type: application/json" \
+  -H "Cookie: access_token=<jwt>" \
+  -d '{"goal_id":"<goal_id>","activity_date":"2026-05-17"}'
+```
+
+        - Example: list activity for a month
+
+```bash
+curl "http://localhost:8000/goals/<goal_id>/activity?start=2026-05-01&end=2026-05-31" \
+  -H "Cookie: access_token=<jwt>"
+```
 
 - Milestones
     - POST `/milestones` — Create milestone (body: `MilestoneCreate`)
@@ -101,9 +125,14 @@ Frontend dashboard recommendation:
 
 - Tasks
     - GET `/tasks` — List tasks for current user (requires auth)
+        - Returned task objects include `id`, `user_id`, `title`, `due_date`, `completed`, `completed_at`, and `created_at`.
     - POST `/tasks` — Create task (body: `TaskCreate`)
-        - `TaskCreate`: { milestone_id (uuid), due_date (date-time), completed (bool) }
+        - `TaskCreate`: { title, due_date (date-time), completed (bool) }
+    - Task ownership is tied directly to the authenticated `user_id`.
+    - `created_at` is set by the database and returned on task reads.
+    - `completed_at` is set by the server when a task is marked completed and cleared when it is reopened.
     - PATCH `/tasks/{task_id}` — Update task (body: `TaskUpdate`)
+        - `TaskUpdate`: { title?, due_date?, completed? }
     - DELETE `/tasks/{task_id}` — Delete task
 
 - Notifications
@@ -222,6 +251,15 @@ source .venv/bin/activate
 # create migration
 alembic revision --autogenerate -m "init"
 alembic upgrade head
+```
+
+Task schema migration applied:
+
+```sql
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
+UPDATE tasks
+SET completed_at = COALESCE(completed_at, created_at)
+WHERE completed = TRUE AND completed_at IS NULL;
 ```
 
 Where to look for full schema

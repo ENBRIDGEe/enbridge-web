@@ -69,7 +69,7 @@ export function PomodoroTimer() {
 
 				{running ? (
 					<button
-						onClick={reset}
+						onClick={() => reset()}
 						className="rounded-2xl px-4 py-2 bg-white/[0.03] text-smoke"
 					>
 						Reset

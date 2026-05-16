@@ -2,11 +2,16 @@ import type { QuickAction } from "../../data/dashboardData";
 
 type QuickActionCardProps = {
 	action: QuickAction;
+	onClick: () => void;
 };
 
-export function QuickActionCard({ action }: QuickActionCardProps) {
+export function QuickActionCard({ action, onClick }: QuickActionCardProps) {
 	return (
-		<button className="group rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]">
+		<button
+			type="button"
+			onClick={onClick}
+			className="group rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4 text-left transition hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.06]"
+		>
 			<div className="flex items-center justify-between gap-4">
 				<div>
 					<p className="text-base text-pearl">{action.label}</p>

@@ -73,10 +73,3 @@ export const habitItems: HabitItem[] = [
 	{ name: "Gym consistency", progress: 72, streak: 9 },
 	{ name: "Study blocks", progress: 64, streak: 17 },
 ];
-
-export const reviewItems = [
-	{ label: "Tasks completed", value: "8" },
-	{ label: "Missed tasks", value: "1" },
-	{ label: "Focus time", value: "4h 20m" },
-	{ label: "Mood", value: "Good" },
-];

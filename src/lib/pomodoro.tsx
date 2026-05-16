@@ -6,7 +6,11 @@ import React, {
 	useRef,
 	useState,
 } from "react";
-import { recordFocusSession } from "./api";
+import {
+	recordFocusSession,
+	enqueueFocusSession,
+	flushFocusSessionQueue,
+} from "./api";
 
 type PomodoroState = {
 	duration: number; // seconds
@@ -155,17 +159,32 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 		};
 	}, []);
 
+	// Try flushing any queued sessions on mount and when connection returns
+	useEffect(() => {
+		void flushFocusSessionQueue();
+
+		function onOnline() {
+			void flushFocusSessionQueue();
+		}
+
+		window.addEventListener("online", onOnline);
+		return () => window.removeEventListener("online", onOnline);
+	}, []);
+
 	const start = useCallback((minutes: number) => {
 		const duration = Math.max(1, Math.round(minutes)) * 60;
 		const endTime = Date.now() + duration * 1000;
-		const next: PomodoroState = {
-			duration,
-			remaining: duration,
-			running: true,
-			endTime,
-		};
-		setState(next);
-		saveState(next);
+		setState((prev) => {
+			const next: PomodoroState = {
+				duration,
+				remaining: duration,
+				running: true,
+				endTime,
+				sessions: prev.sessions ?? 0,
+			};
+			saveState(next);
+			return next;
+		});
 		lastPauseRecordedRef.current = null;
 		if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
 	}, []);
@@ -175,31 +194,93 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 			const timeSpentSeconds = duration - remaining;
 			if (timeSpentSeconds <= 0) return; // Don't record if no time spent
 
-			const timeSpentMinutes = timeSpentSeconds / 60;
+			// Round to nearest minute (minimum 1 minute)
+			const timeSpentMinutes = Math.max(
+				1,
+				Math.round(timeSpentSeconds / 60),
+			);
 			const now = new Date();
 			const completedAt = now.toISOString();
 			const date = now.toISOString().split("T")[0];
 
-			recordFocusSession(timeSpentMinutes, completedAt, date).catch(
-				(err) => {
+			// Record partial time to backend (rounded minutes)
+			recordFocusSession(timeSpentMinutes, completedAt, date)
+				.then(() => {
+					try {
+						localStorage.setItem(
+							"pomodoro_last_update",
+							String(Date.now()),
+						);
+					} catch (e) {}
+				})
+				.catch((err) => {
 					console.error(
 						"Failed to record partial focus session:",
 						err,
 					);
-				},
-			);
-
-			setState((prev) => {
-				const next: PomodoroState = {
-					...prev,
-					sessions: prev.sessions + 1,
-				};
-				saveState(next);
-				return next;
-			});
+					// enqueue for retry later
+					enqueueFocusSession({
+						sessionDurationMinutes: timeSpentMinutes,
+						completedAt,
+						date,
+						attempts: 0,
+					});
+					try {
+						localStorage.setItem(
+							"pomodoro_last_update",
+							String(Date.now()),
+						);
+					} catch (e) {}
+				});
 		},
 		[],
 	);
+
+	// Record completed sessions (when timer naturally reaches 0)
+	const previousSessionsRef = useRef(state.sessions);
+	useEffect(() => {
+		if (state.sessions > previousSessionsRef.current) {
+			const newSessions = state.sessions - previousSessionsRef.current;
+			const sessionDurationMinutes = Math.max(
+				1,
+				Math.round(state.duration / 60),
+			);
+			for (let i = 0; i < newSessions; i++) {
+				const now = new Date();
+				const completedAt = now.toISOString();
+				const date = now.toISOString().split("T")[0];
+				recordFocusSession(sessionDurationMinutes, completedAt, date)
+					.then(() => {
+						try {
+							localStorage.setItem(
+								"pomodoro_last_update",
+								String(Date.now()),
+							);
+						} catch (e) {}
+					})
+					.catch((err) => {
+						console.error(
+							"Failed to record completed focus session:",
+							err,
+						);
+						enqueueFocusSession({
+							sessionDurationMinutes: sessionDurationMinutes,
+							completedAt,
+							date,
+							attempts: 0,
+						});
+						try {
+							localStorage.setItem(
+								"pomodoro_last_update",
+								String(Date.now()),
+							);
+						} catch (e) {}
+					});
+			}
+
+			previousSessionsRef.current = state.sessions;
+		}
+	}, [state.sessions, state.duration]);
 
 	const pause = useCallback(() => {
 		setState((prev) => {
@@ -242,14 +323,17 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 	const reset = useCallback((minutes?: number) => {
 		const mins = minutes ?? Math.round(defaultMinutes);
 		const duration = Math.max(1, mins) * 60;
-		const next: PomodoroState = {
-			duration,
-			remaining: duration,
-			running: false,
-			endTime: null,
-		};
-		setState(next);
-		saveState(next);
+			setState((prev) => {
+				const next: PomodoroState = {
+					duration,
+					remaining: duration,
+					running: false,
+					endTime: null,
+					sessions: prev.sessions ?? 0,
+				};
+				saveState(next);
+				return next;
+			});
 		lastPauseRecordedRef.current = null;
 		if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
 	}, []);

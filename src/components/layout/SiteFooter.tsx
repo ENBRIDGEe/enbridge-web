@@ -13,7 +13,9 @@ export function SiteFooter() {
 						target="_blank"
 						rel="noopener noreferrer"
 						className="underline transition hover:text-pearl"
-					/>
+					>
+						Twitter
+					</a>
 				</p>
 			</div>
 		</footer>

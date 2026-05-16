@@ -6,6 +6,10 @@ export type TaskRecord = {
 	description?: string;
 	category?: string;
 	due_date?: string;
+	created_at?: string;
+	created_date?: string;
+	createdAt?: string;
+	completed_at?: string;
 	completed?: boolean;
 	status?: string;
 };

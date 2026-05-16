@@ -68,16 +68,16 @@ export function AppLayout({
 	const displayName = formatDisplayName(user);
 
 	return (
-		<main className="page-shell max-w-full px-6 lg:px-8 py-6 lg:py-8">
-			<div className="w-full grid gap-6 xl:grid-cols-[240px_minmax(0,1fr)]">
-				<Sidebar
-					user={user}
-					isLoading={isLoading}
-					displayName={displayName}
-					liveTaskCount={liveTaskCount}
-					isTasksLoading={isTasksLoading}
-					signOut={signOut}
-				/>
+		<main className="page-shell max-w-full px-6 lg:px-8 py-6 lg:py-8 overflow-x-hidden">
+			<Sidebar
+				user={user}
+				isLoading={isLoading}
+				displayName={displayName}
+				liveTaskCount={liveTaskCount}
+				isTasksLoading={isTasksLoading}
+				signOut={signOut}
+			/>
+			<div className="w-full max-w-full box-border grid gap-6 xl:ml-[264px] pr-6 xl:max-w-[calc(100vw-320px)]">
 				{children}
 			</div>
 		</main>

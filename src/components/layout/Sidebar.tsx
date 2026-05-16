@@ -15,7 +15,6 @@ const navItems = [
 	["Tasks", "/app/tasks"],
 	["Habits", "/app/habits"],
 	["Focus", "/app/focus"],
-	["Analytics", "/app/analytics"],
 	["Settings", "/app/settings"],
 ];
 
@@ -28,9 +27,9 @@ export function Sidebar({
 	signOut,
 }: SidebarProps) {
 	return (
-		<aside className="glass-panel rounded-[2rem] p-5 flex flex-col xl:sticky xl:top-8 xl:min-h-[calc(100vh-4rem)]">
+		<aside className="glass-panel rounded-[2rem] p-5 flex flex-col relative xl:fixed xl:left-6 xl:top-6 xl:h-[calc(100vh-48px)] xl:w-[240px]">
 			<p className="section-label">Enbridge</p>
-			<nav className="mt-6 space-y-2 text-sm">
+			<nav className="mt-6 space-y-2 text-sm flex-1 overflow-y-auto pr-2">
 				{navItems.map(([label, href]) => (
 					<Link
 						key={href}
@@ -42,7 +41,7 @@ export function Sidebar({
 				))}
 			</nav>
 
-			<div className="mt-6 rounded-[1.5rem] border border-white/10 bg-black/30 p-4 w-full xl:fixed xl:left-8 xl:bottom-8 xl:w-56 xl:mt-0">
+			<div className="mt-auto rounded-[1.5rem] border border-white/10 bg-black/30 p-4 w-full flex-shrink-0">
 				<p className="text-xs uppercase tracking-[0.3em] text-smoke">
 					Profile
 				</p>
@@ -52,11 +51,11 @@ export function Sidebar({
 							? "..."
 							: (displayName.charAt(0) || "?").toUpperCase()}
 					</div>
-					<div>
+					<div className="min-w-0">
 						<p className="text-sm text-pearl">
 							{isLoading ? "Loading..." : displayName}
 						</p>
-						<p className="text-xs text-smoke">
+						<p className="text-xs text-smoke break-words">
 							{isLoading
 								? ""
 								: user?.email || "College + gym + assignments"}
@@ -64,14 +63,6 @@ export function Sidebar({
 					</div>
 				</div>
 				<div className="mt-4 flex items-center justify-between gap-3">
-					<div>
-						<p className="text-xs uppercase tracking-[0.3em] text-smoke">
-							Live tasks
-						</p>
-						<p className="mt-2 text-2xl font-medium text-pearl">
-							{isTasksLoading ? "..." : liveTaskCount}
-						</p>
-					</div>
 					<button
 						type="button"
 						onClick={signOut}
