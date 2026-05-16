@@ -110,7 +110,8 @@ function getStreak(activityDates: Set<string>) {
 
 export function HabitsPage() {
 	const [goals, setGoals] = useState<GoalRecord[]>([]);
-	const [activityMap, setActivityMap] = useState<ActivityMap>(readActivityMap);
+	const [activityMap, setActivityMap] =
+		useState<ActivityMap>(readActivityMap);
 	const [form, setForm] = useState<HabitFormState>(createEmptyHabitForm());
 	const [isLoading, setIsLoading] = useState(true);
 	const [isSubmitting, setIsSubmitting] = useState(false);
@@ -121,9 +122,16 @@ export function HabitsPage() {
 	const now = new Date();
 	const currentYear = now.getFullYear();
 	const currentMonthIndex = now.getMonth();
-	const daysInMonth = new Date(currentYear, currentMonthIndex + 1, 0).getDate();
+	const daysInMonth = new Date(
+		currentYear,
+		currentMonthIndex + 1,
+		0,
+	).getDate();
 
-	const activityWindow = useMemo(() => buildActivityWindowForMonth(currentYear, currentMonthIndex), [currentYear, currentMonthIndex]);
+	const activityWindow = useMemo(
+		() => buildActivityWindowForMonth(currentYear, currentMonthIndex),
+		[currentYear, currentMonthIndex],
+	);
 
 	useEffect(() => {
 		try {
@@ -155,7 +163,11 @@ export function HabitsPage() {
 					.filter((g) => !!g.id)
 					.map(async (g) => {
 						try {
-							const res = await fetchGoalActivity(g.id!, start, end);
+							const res = await fetchGoalActivity(
+								g.id!,
+								start,
+								end,
+							);
 							if (res && Array.isArray(res.dates)) {
 								const existing = new Set(merged[g.id!] ?? []);
 								for (const d of res.dates) existing.add(d);
@@ -187,14 +199,21 @@ export function HabitsPage() {
 	useEffect(() => {
 		if (location.hash === "#add-habit") {
 			titleInputRef.current?.focus();
-			titleInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+			titleInputRef.current?.scrollIntoView({
+				behavior: "smooth",
+				block: "center",
+			});
 		}
 	}, [location.hash]);
 
 	const sortedGoals = useMemo(() => {
 		return [...goals].sort((left, right) => {
-			const leftDeadline = left.deadline ? new Date(left.deadline).getTime() : Number.POSITIVE_INFINITY;
-			const rightDeadline = right.deadline ? new Date(right.deadline).getTime() : Number.POSITIVE_INFINITY;
+			const leftDeadline = left.deadline
+				? new Date(left.deadline).getTime()
+				: Number.POSITIVE_INFINITY;
+			const rightDeadline = right.deadline
+				? new Date(right.deadline).getTime()
+				: Number.POSITIVE_INFINITY;
 			if (leftDeadline !== rightDeadline) {
 				return leftDeadline - rightDeadline;
 			}
@@ -247,7 +266,11 @@ export function HabitsPage() {
 		} catch (err) {
 			// revert on error
 			setActivityMap((current) => ({ ...current, [goalId]: priorDates }));
-			setError(err instanceof Error ? err.message : "Failed to update activity.");
+			setError(
+				err instanceof Error
+					? err.message
+					: "Failed to update activity.",
+			);
 		}
 	}
 
@@ -294,8 +317,9 @@ export function HabitsPage() {
 						Goals you can finish today.
 					</h1>
 					<p className="mt-4 max-w-3xl text-smoke">
-						This screen is backed by <span className="text-pearl">/goals</span>.
-						Each habit can be marked done today and tracked in a GitHub-like
+						This screen is backed by{" "}
+						<span className="text-pearl">/goals</span>. Each habit
+						can be marked done today and tracked in a GitHub-like
 						activity grid.
 					</p>
 				</div>
@@ -344,10 +368,16 @@ export function HabitsPage() {
 						</div>
 					) : (
 						sortedGoals.map((goal, index) => {
-							const goalId = goal.id || `${goal.title || "habit"}-${index}`;
-							const activityDates = getActivityDates(activityMap, goal.id);
+							const goalId =
+								goal.id || `${goal.title || "habit"}-${index}`;
+							const activityDates = getActivityDates(
+								activityMap,
+								goal.id,
+							);
 							const streak = getStreak(activityDates);
-							const completedToday = activityDates.has(toDateKey(new Date()));
+							const completedToday = activityDates.has(
+								toDateKey(new Date()),
+							);
 
 							return (
 								<article
@@ -356,7 +386,9 @@ export function HabitsPage() {
 								>
 									<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 										<div>
-											<p className="section-label">Habit</p>
+											<p className="section-label">
+												Habit
+											</p>
 											<h2 className="mt-3 font-display text-3xl text-pearl">
 												{goal.title || "Untitled habit"}
 											</h2>
@@ -365,43 +397,55 @@ export function HabitsPage() {
 													{goal.category || "habit"}
 												</span>
 												<span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1">
-													Till {formatDeadline(goal.deadline)}
+													Till{" "}
+													{formatDeadline(
+														goal.deadline,
+													)}
 												</span>
 											</div>
 										</div>
 
 										<button
 											type="button"
-											onClick={() => handleMarkDoneToday(goal.id)}
+											onClick={() =>
+												handleMarkDoneToday(goal.id)
+											}
 											className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs uppercase tracking-[0.28em] text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
-											disabled={completedToday || !goal.id}
+											disabled={
+												completedToday || !goal.id
+											}
 										>
-											{completedToday ? "Done today" : "Done today"}
+											{completedToday
+												? "Done today"
+												: "Done today"}
 										</button>
 									</div>
 
-										<div className="mt-5">
+									<div className="mt-5">
 										<div className="mb-3 flex items-center justify-between text-xs uppercase tracking-[0.28em] text-smoke">
 											<span>Activity</span>
-												<span>This month ({daysInMonth} days)</span>
+											<span>
+												This month ({daysInMonth} days)
+											</span>
 										</div>
-											<div className="grid grid-cols-7 gap-2">
-												{activityWindow.map((day) => {
-													const filled = activityDates.has(day.key);
+										<div className="grid grid-cols-7 gap-2">
+											{activityWindow.map((day) => {
+												const filled =
+													activityDates.has(day.key);
 
-													return (
-														<div
-															key={`${goalId}-${day.key}`}
-															title={`${day.day} ${day.label}`}
-															className={`aspect-square rounded-sm border transition ${
-																filled
-																	? "border-emerald-300/40 bg-emerald-400"
-																	: "border-white/10 bg-white/[0.04]"
-															}`}
-														/>
-													);
-												})}
-											</div>
+												return (
+													<div
+														key={`${goalId}-${day.key}`}
+														title={`${day.day} ${day.label}`}
+														className={`aspect-square rounded-sm border transition ${
+															filled
+																? "border-emerald-300/40 bg-emerald-400"
+																: "border-white/10 bg-white/[0.04]"
+														}`}
+													/>
+												);
+											})}
+										</div>
 										<div className="mt-3 flex items-center gap-3 text-xs text-smoke">
 											<span className="inline-flex items-center gap-2">
 												<span className="h-3 w-3 rounded-sm border border-white/10 bg-white/[0.04]" />
@@ -419,7 +463,11 @@ export function HabitsPage() {
 					)}
 				</div>
 
-				<form id="add-habit" onSubmit={handleSave} className="glass-panel rounded-[2rem] p-6">
+				<form
+					id="add-habit"
+					onSubmit={handleSave}
+					className="glass-panel rounded-[2rem] p-6"
+				>
 					<div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
 						<div>
 							<p className="section-label">Add habit</p>
@@ -438,37 +486,49 @@ export function HabitsPage() {
 
 					<div className="mt-6 grid gap-4 md:grid-cols-3">
 						<div className="md:col-span-2">
-							<label className="text-sm text-smoke">Habit name</label>
+							<label className="text-sm text-smoke">
+								Habit name
+							</label>
 							<input
 								ref={titleInputRef}
 								type="text"
 								className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-pearl outline-none placeholder:text-white/25 focus:border-white/20"
 								placeholder="Wake up before 7"
 								value={form.title}
-								onChange={(event) => updateField("title", event.target.value)}
+								onChange={(event) =>
+									updateField("title", event.target.value)
+								}
 								disabled={isSubmitting}
 							/>
 						</div>
 
 						<div>
-							<label className="text-sm text-smoke">Category</label>
+							<label className="text-sm text-smoke">
+								Category
+							</label>
 							<input
 								type="text"
 								className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-pearl outline-none placeholder:text-white/25 focus:border-white/20"
 								placeholder="health"
 								value={form.category}
-								onChange={(event) => updateField("category", event.target.value)}
+								onChange={(event) =>
+									updateField("category", event.target.value)
+								}
 								disabled={isSubmitting}
 							/>
 						</div>
 
 						<div>
-							<label className="text-sm text-smoke">Deadline</label>
+							<label className="text-sm text-smoke">
+								Deadline
+							</label>
 							<input
 								type="date"
 								className="mt-2 w-full rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-pearl outline-none focus:border-white/20 disabled:opacity-50"
 								value={form.deadline}
-								onChange={(event) => updateField("deadline", event.target.value)}
+								onChange={(event) =>
+									updateField("deadline", event.target.value)
+								}
 								disabled={isSubmitting}
 							/>
 						</div>

@@ -12,9 +12,6 @@ export function SiteHeader() {
 						<p className="text-sm font-medium tracking-[0.35em] text-pearl">
 							ENBRIDGE
 						</p>
-						<p className="text-xs tracking-[0.2em] text-smoke">
-							discipline for students
-						</p>
 					</div>
 				</Link>
 

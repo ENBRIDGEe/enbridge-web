@@ -162,15 +162,15 @@ export async function fetchPublicProfile() {
 type GoalListResponse =
 	| GoalRecord[]
 	| {
-		goals?: GoalRecord[];
-		data?: GoalRecord[];
-		items?: GoalRecord[];
-		results?: GoalRecord[];
-	};
+			goals?: GoalRecord[];
+			data?: GoalRecord[];
+			items?: GoalRecord[];
+			results?: GoalRecord[];
+	  };
 
 export async function fetchGoals() {
-	const response = await apiRequest<GoalListResponse>('/goals', {
-		method: 'GET',
+	const response = await apiRequest<GoalListResponse>("/goals", {
+		method: "GET",
 		auth: true,
 	});
 
@@ -231,7 +231,11 @@ export async function removeGoalActivity(goalId: string, activityDate: string) {
 	});
 }
 
-export async function fetchGoalActivity(goalId: string, start?: string, end?: string) {
+export async function fetchGoalActivity(
+	goalId: string,
+	start?: string,
+	end?: string,
+) {
 	const params = new URLSearchParams();
 	if (start) params.set("start", start);
 	if (end) params.set("end", end);

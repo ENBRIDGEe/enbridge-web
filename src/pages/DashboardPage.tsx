@@ -710,9 +710,6 @@ export function DashboardPage() {
 									Build the loop.
 								</h2>
 							</div>
-							<div className="rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-xs uppercase tracking-[0.3em] text-smoke">
-								MVP
-							</div>
 						</div>
 
 						<div className="mt-6 grid gap-4 lg:grid-cols-3">
@@ -748,7 +745,7 @@ export function DashboardPage() {
 											/>
 										</div>
 									</article>
-									))
+								))
 							) : (
 								<div className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-5 text-sm text-smoke lg:col-span-3">
 									No habit streaks yet.

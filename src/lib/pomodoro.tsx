@@ -323,17 +323,17 @@ export function PomodoroProvider({ children }: { children: React.ReactNode }) {
 	const reset = useCallback((minutes?: number) => {
 		const mins = minutes ?? Math.round(defaultMinutes);
 		const duration = Math.max(1, mins) * 60;
-			setState((prev) => {
-				const next: PomodoroState = {
-					duration,
-					remaining: duration,
-					running: false,
-					endTime: null,
-					sessions: prev.sessions ?? 0,
-				};
-				saveState(next);
-				return next;
-			});
+		setState((prev) => {
+			const next: PomodoroState = {
+				duration,
+				remaining: duration,
+				running: false,
+				endTime: null,
+				sessions: prev.sessions ?? 0,
+			};
+			saveState(next);
+			return next;
+		});
 		lastPauseRecordedRef.current = null;
 		if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
 	}, []);
