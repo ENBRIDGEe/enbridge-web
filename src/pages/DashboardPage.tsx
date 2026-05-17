@@ -6,11 +6,7 @@ import { TimelineItem } from "../components/dashboard/TimelineItem";
 import { AppLayout } from "../components/layout/AppLayout";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
-import {
-	fetchFocusTime,
-	fetchTasks,
-	updateTaskCompletion,
-} from "../lib/api";
+import { fetchFocusTime, fetchTasks, updateTaskCompletion } from "../lib/api";
 import type { TaskRecord } from "../lib/taskTypes";
 import { dashboardMetrics } from "../data/dashboardData";
 import { fetchGoals, fetchGoalActivity } from "../lib/api";
@@ -354,8 +350,7 @@ export function DashboardPage() {
 									typeof gg.progress_percentage === "number"
 										? Math.round(gg.progress_percentage)
 										: Math.round(
-												(monthKeys.size /
-													daysInMonth) *
+												(monthKeys.size / daysInMonth) *
 													100,
 											);
 
@@ -545,7 +540,9 @@ export function DashboardPage() {
 		if (!task.id) return;
 
 		const nextCompleted = task.status !== "completed";
-		const completedAt = nextCompleted ? new Date().toISOString() : undefined;
+		const completedAt = nextCompleted
+			? new Date().toISOString()
+			: undefined;
 		setTasks((current) =>
 			current.map((item) =>
 				item.id === task.id
