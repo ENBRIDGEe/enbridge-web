@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Google } from "../components/Google";
 import {
+	API_BASE_URL,
 	fetchCurrentUser,
 	loginWithPassword,
 	registerUser,
@@ -128,18 +129,7 @@ export function AuthPage({ mode }: AuthPageProps) {
 						) : null}
 
 						<div className="flex flex-col items-center gap-4 pt-2">
-							{/**
-							<a
-								href="http://127.0.0.1:8000/auth/google"
-								aria-label="Continue with Google"
-								className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/5 text-sm font-medium text-pearl transition hover:border-white/20 hover:bg-white/10"
-							>
-								<span className="flex h-7 w-7 items-center justify-center rounded-full bg-pearl text-[11px] font-semibold text-ink">
-									G
-								</span>
-							</a>
-                            **/}
-							<a href="http://localhost:8000/auth/google">
+							<a href={`${API_BASE_URL}/auth/google`}>
 								<img
 									src="web_neutral_rd_na.svg"
 									alt="Sign in with Google"
