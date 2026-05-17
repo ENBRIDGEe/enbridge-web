@@ -11,7 +11,7 @@ export function LandingPage() {
 				<div className="absolute inset-0 bg-hero-radial opacity-100" />
 				<div className="absolute inset-0 bg-grain bg-[length:48px_48px] opacity-[0.04]" />
 				<div className="page-shell relative py-14 sm:py-20 lg:py-24">
-					<div className="grid gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+					<div className="grid gap-12 items-center lg:grid-cols-[1.2fr_0.8fr]  lg:items-end">
 						<div className="space-y-8">
 							<div className="space-y-6">
 								<h1 className="display-heading max-w-4xl">
@@ -36,57 +36,11 @@ export function LandingPage() {
 							</div>
 						</div>
 
-						<div className="glass-panel relative overflow-hidden rounded-[2rem] border-white/10 p-5 shadow-soft">
-							<div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(135,240,122,0.12),transparent_40%)]" />
-							<div className="relative space-y-5">
-								<div className="flex items-start justify-between gap-4">
-									<div>
-										<p className="text-xs uppercase tracking-[0.4em] text-smoke">
-											Today
-										</p>
-										<p className="mt-2 font-display text-4xl text-pearl">
-											8 of 12
-										</p>
-										<p className="text-sm text-smoke">
-											tasks completed
-										</p>
-									</div>
-									<div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-right">
-										<p className="text-xs uppercase tracking-[0.3em] text-smoke">
-											Streak
-										</p>
-										<p className="mt-1 text-2xl font-medium text-pearl">
-											17 days
-										</p>
-									</div>
-								</div>
-
-								<div className="rounded-[1.75rem] border border-white/10 bg-black/40 p-5">
-									<div className="flex items-center justify-between text-sm text-smoke">
-										<span>Focus mode</span>
-										<span>25:00</span>
-									</div>
-									<div className="mt-4 h-2 rounded-full bg-white/10">
-										<div className="h-2 w-3/5 rounded-full bg-gradient-to-r from-glow via-white to-amber" />
-									</div>
-									<p className="mt-4 text-sm leading-6 text-smoke">
-										“Small progress every day leads to big
-										results.”
-									</p>
-								</div>
-
-								<div className="grid gap-3 sm:grid-cols-2">
-									{mvpModules.slice(0, 4).map((module) => (
-										<div
-											key={module}
-											className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-pearl"
-										>
-											{module}
-										</div>
-									))}
-								</div>
-							</div>
-						</div>
+						<img
+							src="IMG_6731-removebg-preview.png"
+							alt="App preview"
+							className="relative pb-10"
+						/>
 					</div>
 				</div>
 			</section>
