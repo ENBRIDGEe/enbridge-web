@@ -7,7 +7,6 @@ import { AppLayout } from "../components/layout/AppLayout";
 import { useAuth } from "../lib/auth";
 import { useNavigate } from "react-router-dom";
 import {
-	apiRequest,
 	fetchFocusTime,
 	fetchTasks,
 	updateTaskCompletion,
@@ -85,7 +84,7 @@ function getTimeBasedGreeting(): string {
 }
 
 export function DashboardPage() {
-	const { user, isLoading } = useAuth();
+	const { user } = useAuth();
 	const navigate = useNavigate();
 	const { sessions } = usePomodoro();
 	const { remaining, running, duration, start, pause, resume } =
@@ -105,41 +104,6 @@ export function DashboardPage() {
 			streak: number;
 		}[]
 	>([]);
-
-	useEffect(() => {
-		let isMounted = true;
-
-		async function loadTasks() {
-			try {
-				setIsTasksLoading(true);
-				setTasksError("");
-				const response = await fetchTasks();
-
-				if (isMounted) {
-					setTasks(response);
-				}
-			} catch (error) {
-				if (isMounted) {
-					setTasks([]);
-					setTasksError(
-						error instanceof Error
-							? error.message
-							: "Unable to load tasks.",
-					);
-				}
-			} finally {
-				if (isMounted) {
-					setIsTasksLoading(false);
-				}
-			}
-		}
-
-		void loadTasks();
-
-		return () => {
-			isMounted = false;
-		};
-	}, []);
 
 	// Fetch focus time from backend
 	async function fetchTodayFocus() {
@@ -172,25 +136,23 @@ export function DashboardPage() {
 		return () => window.removeEventListener("storage", onStorage);
 	}, []);
 
-	const refreshTasks = useMemo(() => {
-		return async () => {
-			try {
-				setIsTasksLoading(true);
-				setTasksError("");
-				const response = await fetchTasks();
+	const refreshTasks = useCallback(async () => {
+		try {
+			setIsTasksLoading(true);
+			setTasksError("");
+			const response = await fetchTasks();
 
-				setTasks(response);
-			} catch (error) {
-				setTasks([]);
-				setTasksError(
-					error instanceof Error
-						? error.message
-						: "Unable to load tasks.",
-				);
-			} finally {
-				setIsTasksLoading(false);
-			}
-		};
+			setTasks(response);
+		} catch (error) {
+			setTasks([]);
+			setTasksError(
+				error instanceof Error
+					? error.message
+					: "Unable to load tasks.",
+			);
+		} finally {
+			setIsTasksLoading(false);
+		}
 	}, []);
 
 	const liveTaskCount = useMemo(() => tasks.length, [tasks]);
@@ -371,7 +333,8 @@ export function DashboardPage() {
 									break;
 								}
 
-								// progress as percentage of days in current month with activity
+								// Prefer the backend goal progress when present, otherwise
+								// derive a monthly activity percentage for older responses.
 								const now = new Date();
 								const daysInMonth = new Date(
 									now.getFullYear(),
@@ -387,9 +350,14 @@ export function DashboardPage() {
 										),
 									),
 								);
-								const progress = Math.round(
-									(monthKeys.size / daysInMonth) * 100,
-								);
+								const progress =
+									typeof gg.progress_percentage === "number"
+										? Math.round(gg.progress_percentage)
+										: Math.round(
+												(monthKeys.size /
+													daysInMonth) *
+													100,
+											);
 
 								items.push({
 									name: gg.title || "Untitled",
@@ -414,9 +382,14 @@ export function DashboardPage() {
 			}
 		}
 
-		void loadGoalsAndActivity();
+		// Defer habit loading to happen after dashboard renders (improves perceived performance)
+		const timeoutId = setTimeout(() => {
+			void loadGoalsAndActivity();
+		}, 0);
+
 		return () => {
 			mounted = false;
+			clearTimeout(timeoutId);
 		};
 	}, []);
 
@@ -572,6 +545,7 @@ export function DashboardPage() {
 		if (!task.id) return;
 
 		const nextCompleted = task.status !== "completed";
+		const completedAt = nextCompleted ? new Date().toISOString() : undefined;
 		setTasks((current) =>
 			current.map((item) =>
 				item.id === task.id
@@ -579,6 +553,7 @@ export function DashboardPage() {
 							...item,
 							completed: nextCompleted,
 							status: nextCompleted ? "completed" : "pending",
+							completed_at: completedAt,
 						}
 					: item,
 			),

@@ -26,6 +26,8 @@ export function Sidebar({
 	isTasksLoading,
 	signOut,
 }: SidebarProps) {
+	const profileEmail = user?.email?.trim() || "Email unavailable";
+
 	return (
 		<aside className="glass-panel rounded-[2rem] p-5 flex flex-col relative xl:fixed xl:left-6 xl:top-6 xl:h-[calc(100vh-48px)] xl:w-[240px]">
 			<p className="section-label">Enbridge</p>
@@ -56,9 +58,7 @@ export function Sidebar({
 							{isLoading ? "Loading..." : displayName}
 						</p>
 						<p className="text-xs text-smoke break-words">
-							{isLoading
-								? ""
-								: user?.email || "College + gym + assignments"}
+							{isLoading ? "" : profileEmail}
 						</p>
 					</div>
 				</div>

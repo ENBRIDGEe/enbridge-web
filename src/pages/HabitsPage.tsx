@@ -286,13 +286,18 @@ export function HabitsPage() {
 		setError("");
 
 		try {
+			const targetDate = form.deadline
+				? `${form.deadline}T00:00:00`
+				: new Date().toISOString();
+
 			await createGoal({
 				title: form.title.trim(),
+				description: "",
 				category: form.category.trim() || "habit",
-				deadline: form.deadline
-					? `${form.deadline}T00:00:00`
-					: new Date().toISOString(),
+				target_date: targetDate,
+				deadline: targetDate,
 				status: "active",
+				progress_percentage: 0,
 			});
 
 			await loadGoals();
@@ -412,11 +417,11 @@ export function HabitsPage() {
 											}
 											className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs uppercase tracking-[0.28em] text-emerald-100 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-60"
 											disabled={
-												completedToday || !goal.id
+												!goal.id
 											}
 										>
 											{completedToday
-												? "Done today"
+												? "Clear today"
 												: "Done today"}
 										</button>
 									</div>

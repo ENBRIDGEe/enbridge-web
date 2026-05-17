@@ -5,7 +5,9 @@ export type TaskRecord = {
 	name?: string;
 	description?: string;
 	category?: string;
+	milestone_id?: string;
 	due_date?: string;
+	dueDate?: string;
 	created_at?: string;
 	created_date?: string;
 	createdAt?: string;

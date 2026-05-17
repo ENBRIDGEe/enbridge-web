@@ -1,12 +1,22 @@
 import type { TaskRecord } from "./taskTypes";
 
-export const API_BASE_URL =
-	import.meta.env.VITE_API_URL || "http://localhost:8000";
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const fallbackApiUrl = import.meta.env.DEV
+	? "http://localhost:8000"
+	: typeof window !== "undefined"
+		? window.location.origin
+		: "";
+
+export const API_BASE_URL = (configuredApiUrl || fallbackApiUrl).replace(
+	/\/+$/,
+	"",
+);
 const TOKEN_KEY = "enbridge_access_token";
 
 export type AuthTokenResponse = {
-	access_token: string;
-	token_type: string;
+	access_token?: string;
+	token_type?: string;
+	message?: string;
 };
 
 export type UserProfile = {
@@ -18,6 +28,8 @@ export type UserProfile = {
 	first_name?: string;
 	last_name?: string;
 	email?: string;
+	user_email?: string;
+	email_address?: string;
 	productivity_score?: number;
 	streak_count?: number;
 };
@@ -25,39 +37,97 @@ export type UserProfile = {
 export type GoalRecord = {
 	id?: string;
 	title?: string;
+	description?: string;
 	category?: string;
+	target_date?: string;
 	deadline?: string;
 	status?: string;
+	progress_percentage?: number;
 };
 
 export type GoalCreatePayload = {
 	title: string;
-	category: string;
-	deadline: string;
+	description?: string;
+	category?: string;
+	target_date?: string;
+	deadline?: string;
 	status?: string;
+	progress_percentage?: number;
 };
 
 export type MilestoneRecord = {
 	id?: string;
 	goal_id?: string;
+	title?: string;
+	description?: string;
 	target_date?: string;
 	order_index?: number;
+	completed?: boolean;
 };
 
 export type MilestoneCreatePayload = {
 	goal_id: string;
+	title?: string;
+	description?: string;
 	target_date: string;
 	order_index: number;
+	completed?: boolean;
 };
+
+export type TaskCreatePayload = {
+	title?: string;
+	milestone_id?: string;
+	due_date?: string;
+	completed?: boolean;
+};
+
+export type TaskUpdatePayload = Partial<TaskCreatePayload>;
+
+export type NotificationSettings = {
+	push_enabled?: boolean;
+	email_enabled?: boolean;
+	reminder_time?: string | null;
+	remainder?: string | null;
+	timezone?: string;
+};
+
+export type NotificationUpdatePayload = Partial<NotificationSettings>;
+
+type UnknownRecord = Record<string, unknown>;
+
+function isRecord(value: unknown): value is UnknownRecord {
+	return Boolean(value) && typeof value === "object";
+}
+
+function mergeHeaders(
+	body?: BodyInit | null,
+	auth = false,
+	overrideHeaders?: HeadersInit,
+) {
+	const headers = getHeaders(body, auth);
+
+	if (overrideHeaders) {
+		new Headers(overrideHeaders).forEach((value, key) => {
+			headers.set(key, value);
+		});
+	}
+
+	return headers;
+}
 
 type RequestOptions = RequestInit & {
 	auth?: boolean;
+	timeoutMs?: number;
 };
+
+const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
+const TASK_REQUEST_TIMEOUT_MS = 60000;
+const inFlightGetRequests = new Map<string, Promise<unknown>>();
 
 function getHeaders(body?: BodyInit | null, auth = false) {
 	const headers = new Headers();
 
-	if (body && !(body instanceof FormData)) {
+	if (typeof body === "string") {
 		headers.set("Content-Type", "application/json");
 	}
 
@@ -87,15 +157,86 @@ export async function apiRequest<T>(
 	path: string,
 	options: RequestOptions = {},
 ) {
-	const response = await fetch(`${API_BASE_URL}${path}`, {
-		...options,
-		credentials: "include", // Send cookies with every request
-		headers: {
-			...Object.fromEntries(
-				getHeaders(options.body ?? null, options.auth).entries(),
+	const method = (options.method ?? "GET").toUpperCase();
+	const canDedupe = method === "GET" && !options.body;
+	const requestKey = `${method}:${API_BASE_URL}${path}`;
+
+	if (canDedupe) {
+		const existingRequest = inFlightGetRequests.get(requestKey);
+		if (existingRequest) {
+			return existingRequest as Promise<T>;
+		}
+
+		const request = performApiRequest<T>(path, options).finally(() => {
+			inFlightGetRequests.delete(requestKey);
+		});
+		inFlightGetRequests.set(requestKey, request);
+		return request;
+	}
+
+	return performApiRequest<T>(path, options);
+}
+
+async function performApiRequest<T>(
+	path: string,
+	options: RequestOptions = {},
+) {
+	const controller = new AbortController();
+	const timeoutMs = options.timeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
+	const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+	try {
+		const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
+		const response = await fetch(`${API_BASE_URL}${path}`, {
+			...fetchOptions,
+			signal: controller.signal,
+			credentials: "include", // Send cookies with every request
+			headers: mergeHeaders(
+				options.body ?? null,
+				options.auth,
+				options.headers,
 			),
-			...(options.headers ?? {}),
-		},
+		});
+
+		if (!response.ok) {
+			const errorBody = await response.text();
+			throw new Error(
+				errorBody || `Request failed with status ${response.status}`,
+			);
+		}
+
+		if (response.status === 204) {
+			return undefined as T;
+		}
+
+		const contentType = response.headers.get("content-type") ?? "";
+		if (contentType.includes("application/json")) {
+			return response.json() as Promise<T>;
+		}
+
+		const text = await response.text();
+		return (text || undefined) as T;
+	} catch (error) {
+		if (error instanceof Error && error.name === "AbortError") {
+			throw new Error(
+				`Request timeout (${Math.round(timeoutMs / 1000)}s) for ${path}`,
+			);
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeout);
+	}
+}
+
+export async function loginWithPassword(email: string, password: string) {
+	const body = new URLSearchParams();
+	body.set("username", email);
+	body.set("password", password);
+
+	const response = await fetch(`${API_BASE_URL}/token`, {
+		method: "POST",
+		body,
+		credentials: "include",
 	});
 
 	if (!response.ok) {
@@ -105,22 +246,12 @@ export async function apiRequest<T>(
 		);
 	}
 
-	if (response.status === 204) {
-		return undefined as T;
+	const contentType = response.headers.get("content-type") ?? "";
+	if (contentType.includes("application/json")) {
+		return response.json() as Promise<AuthTokenResponse>;
 	}
 
-	return response.json() as Promise<T>;
-}
-
-export async function loginWithPassword(email: string, password: string) {
-	const body = new URLSearchParams();
-	body.set("username", email);
-	body.set("password", password);
-
-	return apiRequest<AuthTokenResponse>("/token", {
-		method: "POST",
-		body,
-	});
+	return {} as AuthTokenResponse;
 }
 
 export async function registerUser(payload: {
@@ -134,30 +265,124 @@ export async function registerUser(payload: {
 	});
 }
 
+export async function refreshToken() {
+	return apiRequest<AuthTokenResponse>("/auth/refresh", {
+		method: "POST",
+	});
+}
+
+function unwrapUserProfile(response: unknown): UserProfile {
+	if (!isRecord(response)) {
+		throw new Error("Current user response did not include a profile.");
+	}
+
+	const data = response.data;
+	const nestedData = isRecord(data) ? data.data : undefined;
+	const candidates = [
+		response.user,
+		isRecord(data) ? data.user : undefined,
+		isRecord(nestedData) ? nestedData.user : undefined,
+		data,
+		response,
+	];
+
+	for (const candidate of candidates) {
+		if (!isRecord(candidate)) {
+			continue;
+		}
+
+		if (
+			"id" in candidate ||
+			"email" in candidate ||
+			"user_email" in candidate ||
+			"email_address" in candidate ||
+			"name" in candidate ||
+			"username" in candidate
+		) {
+			return normalizeUserProfile(candidate as UserProfile);
+		}
+	}
+
+	throw new Error("Current user response did not include a profile.");
+}
+
+function normalizeUserProfile(profile: UserProfile): UserProfile {
+	return {
+		...profile,
+		email:
+			profile.email ??
+			profile.user_email ??
+			profile.email_address ??
+			undefined,
+	};
+}
+
+function mergeUserProfiles(
+	primary: UserProfile,
+	secondary?: UserProfile,
+): UserProfile {
+	if (!secondary) {
+		return primary;
+	}
+
+	return {
+		...secondary,
+		...primary,
+		email: primary.email ?? secondary.email,
+	};
+}
+
 export async function fetchCurrentUser() {
-	const response = await apiRequest<
-		| {
-				message?: string;
-				user?: UserProfile;
-		  }
-		| UserProfile
-	>("/users/auth", {
+	try {
+		const profile = await fetchCurrentUserProfile();
+		if (profile.email) {
+			return profile;
+		}
+
+		const publicProfile = await fetchPublicProfile().catch(() => undefined);
+		return mergeUserProfiles(profile, publicProfile);
+	} catch {
+		const response = await apiRequest<unknown>("/users/auth", {
+			method: "GET",
+			auth: true,
+		});
+
+		const profile = unwrapUserProfile(response);
+		if (profile.email) {
+			return profile;
+		}
+
+		const publicProfile = await fetchPublicProfile().catch(() => undefined);
+		return mergeUserProfiles(profile, publicProfile);
+	}
+}
+
+export async function fetchCurrentUserProfile() {
+	const response = await apiRequest<unknown>("/users/me/", {
 		method: "GET",
 		auth: true,
 	});
 
-	// Handle both nested and flat response shapes
-	if (response && "user" in response && response.user) {
-		return response.user;
-	}
-
-	return response as UserProfile;
+	return unwrapUserProfile(response);
 }
 
 export async function fetchPublicProfile() {
-	return apiRequest<UserProfile>("/users/auth/public", {
+	const response = await apiRequest<unknown>("/users/me/public", {
 		method: "GET",
+		auth: true,
 	});
+
+	return unwrapUserProfile(response);
+}
+
+export async function updateCurrentUserProfile(payload: { name: string }) {
+	const response = await apiRequest<unknown>("/users/me", {
+		method: "PATCH",
+		body: JSON.stringify(payload),
+		auth: true,
+	});
+
+	return unwrapUserProfile(response);
 }
 
 type GoalListResponse =
@@ -206,6 +431,22 @@ export async function fetchGoalMilestones(goalId: string) {
 export async function createMilestone(payload: MilestoneCreatePayload) {
 	return apiRequest<MilestoneRecord>("/milestones", {
 		method: "POST",
+		body: JSON.stringify(payload),
+		auth: true,
+	});
+}
+
+export async function createTask(payload: TaskCreatePayload) {
+	return apiRequest<TaskRecord>("/tasks", {
+		method: "POST",
+		body: JSON.stringify(payload),
+		auth: true,
+	});
+}
+
+export async function updateTask(taskId: string, payload: TaskUpdatePayload) {
+	return apiRequest<TaskRecord>(`/tasks/${taskId}`, {
+		method: "PATCH",
 		body: JSON.stringify(payload),
 		auth: true,
 	});
@@ -263,6 +504,7 @@ export async function fetchTasks() {
 	const response = await apiRequest<TaskListResponse>("/tasks", {
 		method: "GET",
 		auth: true,
+		timeoutMs: TASK_REQUEST_TIMEOUT_MS,
 	});
 
 	if (Array.isArray(response)) {
@@ -393,9 +635,35 @@ export async function fetchFocusTime(
 }
 
 export async function updateTaskCompletion(taskId: string, completed: boolean) {
-	return apiRequest<unknown>(`/tasks/${taskId}`, {
-		method: "PATCH",
-		body: JSON.stringify({ completed }),
+	return updateTask(taskId, { completed });
+}
+
+export async function fetchNotificationSettings() {
+	return apiRequest<NotificationSettings>("/notifications/settings", {
+		method: "GET",
 		auth: true,
 	});
+}
+
+export async function updateNotificationSettings(
+	payload: NotificationUpdatePayload,
+) {
+	return apiRequest<NotificationSettings>("/notifications/settings", {
+		method: "PATCH",
+		body: JSON.stringify(payload),
+		auth: true,
+	});
+}
+
+export async function logout() {
+	try {
+		await apiRequest<{ message?: string }>("/logout", {
+			method: "POST",
+		});
+	} catch (error) {
+		console.error("Logout request failed:", error);
+	} finally {
+		// Always clear local tokens regardless of API success
+		clearAccessToken();
+	}
 }

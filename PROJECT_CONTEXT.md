@@ -1,7 +1,7 @@
 # Enbridge Web Project - Complete Context & Progress
 
-**Last Updated:** May 16, 2026  
-**Current Status:** All features implemented and passing build validation (60 modules, 221kB JS)
+**Last Updated:** May 17, 2026  
+**Current Status:** Frontend aligned with the updated README schemas and passing production build + TypeScript validation (57 modules, 226.61kB JS)
 
 ---
 
@@ -24,7 +24,7 @@
 
 ### ✅ Authentication & User Context
 
-- `fetchCurrentUser()` — Nested response handling (data.data.user)
+- `fetchCurrentUser()` — Handles flat, `user`, `data.user`, and `data.data.user` response shapes
 - Displays actual user name "Sampraad Das"
 - Time-based greeting ("Good morning/afternoon/evening") via `getTimeBasedGreeting()`
 - HttpOnly JWT cookies for secure sessions
@@ -94,7 +94,13 @@ recordFocusSession(sessionDurationMinutes, completedAt, date) → POST /analytic
 fetchFocusTime(date?, range?) → GET /analytics/focus-time
 
 // Task Management
+createTask({ title, milestone_id?, due_date?, completed? }) → POST /tasks
 updateTaskCompletion(taskId, completed) → PATCH /tasks/{taskId} with {completed: bool}
+
+// Settings
+updateCurrentUserProfile({ name }) → PATCH /users/me
+fetchNotificationSettings() → GET /notifications/settings
+updateNotificationSettings({ push_enabled, email_enabled, reminder_time, timezone }) → PATCH /notifications/settings
 
 // Queue & Retry (5-attempt limit with attempts counter for backoff)
 enqueueFocusSession(q: QueuedFocusSession) → localStorage["pomodoro_queue"]
@@ -190,8 +196,12 @@ Purpose: Cross-tab sync for timer state, session counter, queue flush events
 
 ### Authentication
 
-- GET /me — returns {data: {user: {name, email, ...}}}
-- Cookie-based JWT (HttpOnly), optional Authorization header
+- GET /users/auth — returns the authenticated user payload for the app shell
+- GET /users/me/ — returns the current user
+- PATCH /users/me — updates the current user's profile name
+- GET /users/me/public — returns safe public fields for the current user
+- POST /auth/refresh — refreshes the access-token cookie from the refresh-token cookie
+- Cookie-based JWT (HttpOnly), optional Authorization header for older/non-browser clients
 
 ### Analytics
 
@@ -200,9 +210,16 @@ Purpose: Cross-tab sync for timer state, session counter, queue flush events
 
 ### Tasks
 
-- GET /tasks — returns [{id, title, time, category, status, dueDate, completed}, ...]
-- PATCH /tasks/{task_id} — {completed: bool} — returns updated TaskRecord
-- POST /tasks — {title, category, time, dueDate} — creates new task
+- GET /tasks — returns live user-owned tasks with `title`, `due_date`, `completed`, `completed_at`, and optional `milestone_id`
+- PATCH /tasks/{task_id} — accepts `TaskUpdate`, including `{completed: bool}`; backend may set or clear `completed_at`
+- POST /tasks — accepts `TaskCreate` with `{title?, milestone_id?, due_date?, completed?}`
+
+### Goals, Activity, And Notifications
+
+- POST /goals — accepts `GoalCreate` with `title`, `description`, `category`, `target_date`, `deadline`, `status`, and `progress_percentage`
+- GET/POST/DELETE /goals/{goal_id}/activity — persists daily goal activity using `activity_date`
+- GET /notifications/settings — returns `push_enabled`, `email_enabled`, `reminder_time`, and `timezone`
+- PATCH /notifications/settings — updates the same fields; `remainder` is only a backward-compatible alias
 
 ---
 
@@ -323,10 +340,13 @@ const apiRequest = (endpoint, options) =>
 
 ```
 npm run build
-✓ 60 modules transformed
-dist/assets/index-CGCZeU6o.js 221.26kB │ gzip 66.96kB
-dist/assets/index-CGCZeU6o.css 24.85kB │ gzip 5.34kB
-built in 3.44s
+✓ 57 modules transformed
+dist/assets/index-DN7i8o96.js 226.61kB │ gzip 69.70kB
+dist/assets/index-BMkTmXkz.css 25.39kB │ gzip 5.53kB
+built in 1.74s
+
+npx tsc --noEmit
+✓ zero errors
 ```
 
 No TypeScript or JSX errors. All type definitions resolve correctly.
@@ -337,7 +357,6 @@ No TypeScript or JSX errors. All type definitions resolve correctly.
 
 ### Not Yet Verified
 
-- Backend endpoint exact payload shapes (assumed PATCH /tasks/{id} accepts {completed: bool})
 - End-to-end runtime testing with user interaction
 - Offline queue resilience (retry logic implemented but not tested in live app)
 
@@ -357,7 +376,7 @@ No TypeScript or JSX errors. All type definitions resolve correctly.
 src/
 ├── lib/
 │   ├── pomodoro.tsx          ← PomodoroProvider + recordPartialSession
-│   ├── api.ts                ← recordFocusSession, updateTaskCompletion, queue funcs
+│   ├── api.ts                ← auth, goals, tasks, analytics, notifications, queue funcs
 │   ├── taskDisplay.ts        ← normalizeTask, sortDisplayTasks (NEW)
 │   └── [other utilities]
 ├── components/
@@ -401,12 +420,13 @@ src/
 ## 12. Recent Changes Summary (This Session)
 
 1. **Created** `src/lib/taskDisplay.ts` with shared `normalizeTask()` and `sortDisplayTasks()` helpers
-2. **Modified** `src/lib/api.ts`: Added `enqueueFocusSession()`, `flushFocusSessionQueue()` (5-attempt retry), `updateTaskCompletion()`
+2. **Modified** `src/lib/api.ts`: Added schema-aligned auth, goals, tasks, notifications, queue, and profile helpers
 3. **Modified** `src/lib/pomodoro.tsx`: Integrated queue import, enqueue on fail, flush on mount/online, storage event write
 4. **Modified** `src/components/dashboard/TimelineItem.tsx`: Replaced status badge with clickable tick circle, added strike-through
 5. **Modified** `src/pages/DashboardPage.tsx`: Added `refreshTasks()`, `handleToggleTask()`, dynamic metrics, storage listener
 6. **Modified** `src/pages/TasksPage.tsx`: Applied same sorting + toggle logic as dashboard
-7. **Validated:** Two successful production builds (60 modules, 221kB JS, 3.4s compile)
+7. **Modified** `src/pages/SettingsPage.tsx`: Wired profile and notification settings to `/users/me` and `/notifications/settings`
+8. **Validated:** Production build and `npx tsc --noEmit` pass (57 modules, 226.61kB JS)
 
 ---
 
@@ -417,7 +437,7 @@ If starting a new chat, use this prompt:
 ```
 I'm working on an Enbridge productivity dashboard (React + TypeScript + Vite + Tailwind + FastAPI backend).
 
-**Current Status:** All features implemented and passing build validation.
+**Current Status:** Frontend aligned with the updated README schemas and passing build + TypeScript validation.
 - Pomodoro timer with analytics + retry queue for failed POSTs
 - Dynamic task list with sorting (pending + nearest due date first, completed at bottom)
 - Interactive task circles that toggle completion with optimistic UI + PATCH backend sync
@@ -426,7 +446,7 @@ I'm working on an Enbridge productivity dashboard (React + TypeScript + Vite + T
 
 **Key Files:**
 - src/lib/pomodoro.tsx: PomodoroProvider + recordPartialSession + queue flush
-- src/lib/api.ts: recordFocusSession, updateTaskCompletion, enqueueFocusSession, flushFocusSessionQueue
+- src/lib/api.ts: cookie auth, user profile, goals, tasks, notifications, analytics, queue helpers
 - src/lib/taskDisplay.ts: normalizeTask, sortDisplayTasks (shared helpers)
 - src/pages/DashboardPage.tsx: Main dashboard with dynamic metrics + task toggle handler
 - src/pages/TasksPage.tsx: Full task list with same toggle logic
@@ -440,15 +460,18 @@ I'm working on an Enbridge productivity dashboard (React + TypeScript + Vite + T
 - localStorage keys: pomodoro_state, pomodoro_sessions, pomodoro_queue, pomodoro_last_update (must stay consistent)
 
 **API Endpoints (Backend):**
-- GET /me: returns {data: {user: {...}}}
-- GET /tasks: returns [{id, title, time, category, status, dueDate, completed}, ...]
-- PATCH /tasks/{task_id}: {completed: bool} → returns updated TaskRecord
+- GET /users/auth and /users/me: return current user/profile data
+- PATCH /users/me: updates profile name
+- GET/PATCH /notifications/settings: `{push_enabled, email_enabled, reminder_time, timezone}`
+- GET /tasks: returns live task rows with `due_date`, `completed`, `completed_at`, optional `milestone_id`
+- PATCH /tasks/{task_id}: `{completed: bool}` → returns updated TaskRecord
+- POST /goals: accepts `{title, description, category, target_date, deadline, status, progress_percentage}`
 - POST /analytics/focus-sessions: {session_duration_minutes, completed_at, date}
 - GET /analytics/focus-time: returns {focus_time_display, ...}
 
-**Last Build:** ✓ 60 modules, 221kB JS, 3.4s compile, zero errors
+**Last Build:** ✓ 57 modules, 226.61kB JS, build + TypeScript zero errors
 
-**Next Steps:** End-to-end runtime testing, backend payload verification, or new features.
+**Next Steps:** End-to-end runtime testing or new features.
 
 [Include link to this file: PROJECT_CONTEXT.md]
 ```

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { TimelineItem } from "../components/dashboard/TimelineItem";
-import { apiRequest, fetchTasks, updateTaskCompletion } from "../lib/api";
+import { createTask, fetchTasks, updateTaskCompletion } from "../lib/api";
 import type { TaskRecord } from "../lib/taskTypes";
 import {
 	normalizeTask,
@@ -67,6 +67,7 @@ export function TasksPage() {
 		if (!task.id) return;
 
 		const nextCompleted = task.status !== "completed";
+		const completedAt = nextCompleted ? new Date().toISOString() : undefined;
 		setTasks((current) =>
 			current.map((item) =>
 				item.id === task.id
@@ -74,6 +75,7 @@ export function TasksPage() {
 							...item,
 							completed: nextCompleted,
 							status: nextCompleted ? "completed" : "pending",
+							completed_at: completedAt,
 						}
 					: item,
 			),
@@ -93,17 +95,18 @@ export function TasksPage() {
 		setIsSubmitting(true);
 		setTasksError("");
 		try {
-			await apiRequest("/tasks", {
-				method: "POST",
-				body: JSON.stringify({
-					title,
-					due_date: buildDueDateTime(),
-					completed: false,
-				}),
-				auth: true,
+			const createdTask = await createTask({
+				title: title.trim(),
+				due_date: buildDueDateTime(),
+				completed: false,
 			});
 
-			await loadTasks();
+			if (createdTask && typeof createdTask === "object") {
+				setTasks((current) => [createdTask, ...current]);
+			} else {
+				void loadTasks();
+			}
+
 			setTitle("");
 			setDueDate("");
 		} catch (error) {

@@ -18,7 +18,7 @@ http://localhost:8000/openapi.json
 Quick start (dev):
 
 ```bash
-cd backend
+cd /Users/kritimantalukdar/Desktop/Client/enbridge-api
 source .venv/bin/activate
 pip install -r requirements.txt
 ./.venv/bin/uvicorn main:app --reload --host 127.0.0.1 --port 8000
@@ -28,6 +28,13 @@ Environment (backend/.env)
 
 - The app reads lowercase DB parts: `user`, `password`, `host`, `port`, `dbname`. If all present the app builds the Postgres `DATABASE_URL`. Otherwise it falls back to `sqlite:///./enbridge.db`.
 - Required for production: `SECRET_KEY`, DB credentials, Google OAuth keys (if using Google sign-in).
+
+Live database schema notes
+
+- The live database currently has these core tables: `users`, `goals`, `milestones`, `goal_activity`, `notification_settings`, `progress_logs`, `refresh_tokens`, `subscriptions`, `tasks`, and `focus_sessions`.
+- The ORM and request schemas in this repo are aligned to those table shapes, including the newer fields such as `goal_activity.activity_date`, `goals.progress_percentage`, `tasks.milestone_id`, `tasks.completed_at`, and `notification_settings.email_enabled` / `reminder_time` / `timezone`.
+- Some endpoints keep backward-compatible request aliases where practical. For example, `NotificationUpdate` still accepts `remainder` as an alias for `reminder_time`.
+- Refresh-token auth now uses the `refresh_tokens` table as the source of truth. The old `users.refresh_token_*` columns are legacy and no longer part of the application logic.
 
 Example `.env` (fill password and hosts):
 
@@ -74,71 +81,70 @@ Main endpoints (summary and frontend usage)
 
 - GET `/auth/google` — Redirect to Google for OAuth sign-in.
 - GET `/auth/google/callback` — Google callback: on success the server sets the same HttpOnly cookie containing the JWT and redirects the browser to the frontend dashboard URL from `FRONTEND_URL` instead of returning JSON.
+- POST `/auth/refresh` — Rotate the refresh token and issue a new access-token cookie.
+- POST `/logout` — Revoke the refresh token and clear auth cookies.
+
+Refresh token endpoint
+
+- **POST `/auth/refresh`** — Reissue the access token cookie using the current refresh token cookie.
+    - Purpose: Accepts the current refresh token from the HttpOnly `refresh_token` cookie, validates it, and issues a fresh access token cookie used for authenticated requests. The existing refresh token remains valid until logout or expiry, which makes the endpoint safe to call multiple times during dashboard startup.
+    - Authentication: The endpoint reads the `refresh_token` cookie; no `Authorization` header required for rotation flows.
+    - Success: Returns `200 OK`, keeps the existing `refresh_token` cookie in place, and sets a fresh `access_token` cookie. The response body may include a short JSON status payload.
+    - Failure: Returns `401 Unauthorized` when the refresh token is missing, invalid, or expired. On failure the server will clear auth cookies.
+
+Example curl (browser flows should rely on the cookie being sent automatically):
+
+```bash
+curl -X POST http://localhost:8000/auth/refresh \
+    -H "Content-Type: application/json" \
+    --cookie "refresh_token=<current_refresh_token>" \
+    -i
+```
+
+Notes:
+
+- The refresh-token lookup is recorded in the `refresh_tokens` table using `token_hash`, `expires_at`, and `revoked_at` (see the migration noted above). The refresh token itself is reused until logout or expiry so dashboard startup can safely call `/auth/refresh` more than once.
+- When testing with `httpx` or `curl`, ensure you forward cookies between calls to observe rotation behavior.
 
 - GET `/users/me/` — Get current user (requires auth)
-- GET `/users/me/public` — Public profile of current user (no auth required)
-- GET `/users/debug` — Debug helper (dev only)
-- GET `/users/auth` — Auth check (requires auth)
+- PATCH `/users/me` — Update the current user's profile name (requires auth)
+- GET `/users/me/public` — Safe public fields for the current user (requires auth)
+- GET `/users/auth` — Minimal auth check helper, hidden from OpenAPI (requires auth)
 
 Frontend dashboard recommendation:
 
 - Use `GET /users/auth` when you want the authenticated user payload for the dashboard header/profile area.
 - Keep browser requests on the same host as the auth cookie, for example frontend on `http://localhost:5173` and API on `http://localhost:8000`.
 - Always include credentials in browser requests so the HttpOnly cookie is sent.
+- If `/app/dashboard` keeps spinning after login, that is usually a frontend auth-guard or data-loading issue rather than a backend login failure. The backend should already have completed the redirect and set the cookies.
 
 - Goals
     - GET `/goals` — List goals for current user (requires auth)
     - POST `/goals` — Create a goal (body: `GoalCreate`)
-        - `GoalCreate`: { title, category, deadline (date-time), status }
+        - `GoalCreate`: { title, description, category, target_date (date-time), deadline (date-time), status, progress_percentage }
     - GET `/goals/{goal_id}` — Read a specific goal (requires auth)
     - PATCH `/goals/{goal_id}` — Update a goal (body: `GoalUpdate`)
     - DELETE `/goals/{goal_id}` — Delete goal
-    - Activity / Heatmap support
-        - Normalized activity table: `goal_activity` (created by backend migrations)
-            - Columns: `id` (uuid primary key), `goal_id` (uuid FK -> goals.id), `activity_date` (date), `created_at` (timestamp)
-            - Unique constraint: `(goal_id, activity_date)` so a date is recorded only once per goal.
-        - Endpoints (require auth / ownership):
-            - POST `/goals/{goal_id}/activity` — add a completed date (body: `GoalActivityCreate` { goal_id, activity_date })
-            - DELETE `/goals/{goal_id}/activity` — remove a completed date (body: `GoalActivityCreate`)
-            - GET `/goals/{goal_id}/activity?start=YYYY-MM-DD&end=YYYY-MM-DD` — list activity dates in the range; response: `{ dates: ["2026-05-01", ...], count: N }`
-
-        - Example: mark today as done
-
-```bash
-curl -X POST http://localhost:8000/goals/<goal_id>/activity \
-  -H "Content-Type: application/json" \
-  -H "Cookie: access_token=<jwt>" \
-  -d '{"goal_id":"<goal_id>","activity_date":"2026-05-17"}'
-```
-
-        - Example: list activity for a month
-
-```bash
-curl "http://localhost:8000/goals/<goal_id>/activity?start=2026-05-01&end=2026-05-31" \
-  -H "Cookie: access_token=<jwt>"
-```
+    - POST `/goals/{goal_id}/activity` — Record goal activity for a specific day
+    - GET `/goals/{goal_id}/activity` — List goal activity days
+    - DELETE `/goals/{goal_id}/activity` — Delete goal activity for a specific day
 
 - Milestones
     - POST `/milestones` — Create milestone (body: `MilestoneCreate`)
-        - `MilestoneCreate`: { goal_id (uuid), target_date (date-time), order_index (integer) }
+        - `MilestoneCreate`: { goal_id (uuid), title (optional), description (optional), target_date (date-time), order_index (integer), completed (bool) }
     - GET `/milestones/goal/{goal_id}` — List milestones for a goal (requires auth)
 
 - Tasks
     - GET `/tasks` — List tasks for current user (requires auth)
-        - Returned task objects include `id`, `user_id`, `title`, `due_date`, `completed`, `completed_at`, and `created_at`.
     - POST `/tasks` — Create task (body: `TaskCreate`)
-        - `TaskCreate`: { title, due_date (date-time), completed (bool) }
-    - Task ownership is tied directly to the authenticated `user_id`.
-    - `created_at` is set by the database and returned on task reads.
-    - `completed_at` is set by the server when a task is marked completed and cleared when it is reopened.
+        - `TaskCreate`: { title (optional), milestone_id (optional uuid), due_date (date-time), completed (bool) }
     - PATCH `/tasks/{task_id}` — Update task (body: `TaskUpdate`)
-        - `TaskUpdate`: { title?, due_date?, completed? }
     - DELETE `/tasks/{task_id}` — Delete task
 
 - Notifications
     - GET `/notifications/settings` — Read notification settings for current user (requires auth)
     - PATCH `/notifications/settings` — Update settings (body: `NotificationUpdate`)
-        - `NotificationUpdate`: { push_enabled (bool), remainder (date-time) }
+        - `NotificationUpdate`: { push_enabled (bool), email_enabled (bool), reminder_time (time, alias `remainder` for backwards compatibility), timezone (string) }
 
 - Analytics
     - POST `/analytics/focus-sessions` — Record a completed Pomodoro session (requires auth)
@@ -239,27 +245,74 @@ const user = await response.json();
 
 - Errors: validation errors return 422 with `HTTPValidationError` shape; missing DB returns 503 with a helpful message.
 
-Database & migrations
-
-- The app will attempt to create tables at startup when the DB is available. For production use, prefer Alembic migrations instead of relying on `create_all()`.
-- Recommended workflow:
+Tests:
 
 ```bash
-# set DATABASE env (.env)
-cd backend
-source .venv/bin/activate
-# create migration
-alembic revision --autogenerate -m "init"
-alembic upgrade head
+pytest -q
 ```
 
-Task schema migration applied:
+Recent changes (important)
 
-```sql
-ALTER TABLE tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMP;
-UPDATE tasks
-SET completed_at = COALESCE(completed_at, created_at)
-WHERE completed = TRUE AND completed_at IS NULL;
+- **Refresh-token storage**: The app now stores refresh-token rotation state in the `refresh_tokens` table. Each login writes a new row, refresh validates the active row, and logout revokes that row. A migration exists at `migrations/versions/eaa370972844_updated_refresh_token_into_user_s_table.py`.
+- **Legacy user columns removed**: The `users.refresh_token_*` columns and their indexes were dropped from the live database. The new cleanup migration lives at `migrations/versions/7f9d3a6e4b21_drop_refresh_token_columns_from_users.py`.
+
+```bash
+alembic upgrade head
+# Or run the SQL manually if you cannot run Alembic:
+ALTER TABLE refresh_tokens ADD COLUMN IF NOT EXISTS created_at TIMESTAMP;
+```
+
+- **Connection pooling / Supabase pooler**: When connecting to Supabase in production you should use the Supabase session pooler (host like `*.pooler.supabase.com`) and set `sslmode=require`. The app's `core/database.py` is configured to build the `DATABASE_URL` from the lowercase env vars found in `.env` (`user`, `password`, `host`, `port`, `dbname`) and uses SQLAlchemy's `NullPool` so client-side pooling is disabled (recommended when using a managed pooler).
+
+- **Task shape**: `tasks` is now treated as the live user-owned task table with `user_id`, `title`, `completed_at`, and optional `milestone_id`. Task creation can still derive a title from the linked milestone if one is not provided.
+
+- **Goals and activity**: Goal payloads now include `description`, `target_date`, `deadline`, and `progress_percentage`. The goal activity endpoints (`POST/GET/DELETE /goals/{goal_id}/activity`) drive the heatmap UI and persist into `goal_activity`.
+
+- **Notifications**: The settings payload now uses `push_enabled`, `email_enabled`, `reminder_time`, and `timezone` to match the live table. The API still accepts `remainder` as an alias to preserve older clients.
+
+- **Tasks `completed_at`**: The `tasks` table and API now include a `completed_at` field (datetime). Creating or updating a task may set or clear `completed_at` based on the `completed` boolean in the API payload.
+
+- **Goals activity (heatmap)**: Per-day activity tracking for goals was added. New endpoints:
+    - `POST /goals/{goal_id}/activity` — record activity for a day
+    - `DELETE /goals/{goal_id}/activity` — remove activity for a day
+    - `GET /goals/{goal_id}/activity` — list activity days for a goal
+
+Testing notes / safety
+
+- The test suite (`pytest -q`) uses the application's configured DB by default. Ensure your `.env` points to a safe test or development database before running the full test suite — tests will create, modify, and delete data.
+
+If you want me to roll the Alembic migrations for you on a specific host or run the SQL directly against a DB, provide DB access (or run the provided SQL/commands on your environment).
+
+Database & migrations
+
+- Schema changes are managed with **Alembic migrations**.
+- Before running locally, apply migrations with `alembic upgrade head`.
+
+## Local setup for Alembic (one-time)
+
+This repository already includes an Alembic environment:
+
+```bash
+cd /Users/kritimantalukdar/Desktop/Client/enbridge-api
+alembic current
+```
+
+## Apply model changes (repeatable)
+
+After updating your SQLAlchemy models, run:
+
+```bash
+# set DB env (.env)
+source .venv/bin/activate
+
+# generate a migration from model changes
+alembic revision --autogenerate -m "update models"
+
+# apply migration to enbridge.db / Postgres
+alembic upgrade head
+
+# verify models and DB are in sync
+alembic check
 ```
 
 Where to look for full schema

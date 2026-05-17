@@ -3,11 +3,11 @@ import { Link, useNavigate } from "react-router-dom";
 import { Google } from "../components/Google";
 import {
 	API_BASE_URL,
-	fetchCurrentUser,
 	loginWithPassword,
 	registerUser,
 	setAccessToken,
 } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 type AuthPageProps = {
 	mode: "login" | "register";
@@ -16,6 +16,7 @@ type AuthPageProps = {
 export function AuthPage({ mode }: AuthPageProps) {
 	const isLogin = mode === "login";
 	const navigate = useNavigate();
+	const { refreshUser } = useAuth();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
 	const [name, setName] = useState("");
@@ -37,8 +38,15 @@ export function AuthPage({ mode }: AuthPageProps) {
 				? await loginWithPassword(email, password)
 				: await registerUser({ name, email, password });
 
-			setAccessToken(token.access_token);
-			await fetchCurrentUser().catch(() => undefined);
+			if (token.access_token) {
+				setAccessToken(token.access_token);
+			}
+
+			const profile = await refreshUser();
+			if (!profile) {
+				throw new Error("Signed in, but the profile could not be loaded.");
+			}
+
 			navigate("/app/dashboard", { replace: true });
 		} catch (error) {
 			setErrorMessage(
@@ -73,8 +81,8 @@ export function AuthPage({ mode }: AuthPageProps) {
 							: "Set up your student productivity workspace and start with the MVP flow."}
 					</p>
 					<p className="mt-8 text-sm text-smoke">
-						Auth now submits to the backend endpoints in the README
-						and stores the bearer token for the app shell.
+						Auth submits to the backend endpoints in the README and
+						uses the secure session cookie returned by the API.
 					</p>
 
 					<form className="mt-8 space-y-5" onSubmit={handleSubmit}>

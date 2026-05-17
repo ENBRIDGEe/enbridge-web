@@ -6,13 +6,19 @@ import {
 	useState,
 	type ReactNode,
 } from "react";
-import { clearAccessToken, fetchCurrentUser, type UserProfile } from "./api";
+import {
+	clearAccessToken,
+	fetchCurrentUser,
+	logout,
+	refreshToken,
+	type UserProfile,
+} from "./api";
 
 type AuthContextValue = {
 	user: UserProfile | null;
 	isAuthenticated: boolean;
 	isLoading: boolean;
-	refreshUser: () => Promise<void>;
+	refreshUser: () => Promise<UserProfile | null>;
 	signOut: () => void;
 };
 
@@ -25,17 +31,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	async function refreshUser() {
 		try {
 			setIsLoading(true);
+			console.log("[Auth] Refreshing user session...");
+			try {
+				await refreshToken();
+				console.log("[Auth] Token refreshed successfully");
+			} catch (error) {
+				// Cookie refresh can fail for new visitors; the user fetch below is authoritative.
+				console.debug("[Auth] Token refresh skipped:", error);
+			}
+			console.log("[Auth] Fetching current user...");
 			const profile = await fetchCurrentUser();
 			setUser(profile);
-		} catch {
+			console.log("[Auth] User authenticated:", profile?.email);
+			return profile;
+		} catch (error) {
+			console.error("[Auth] Failed to load user:", error);
 			clearAccessToken();
 			setUser(null);
+			return null;
 		} finally {
 			setIsLoading(false);
 		}
 	}
 
 	function signOut() {
+		void logout();
 		clearAccessToken();
 		setUser(null);
 	}

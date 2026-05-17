@@ -29,15 +29,19 @@ function getDueDateValue(task: DisplayTask) {
 }
 
 export function normalizeTask(task: TaskRecord, index: number): DisplayTask {
-	const dueDate = task.due_date || undefined;
-	const time = dueDate
-		? new Date(dueDate).toLocaleTimeString([], {
+	const dueDate = task.due_date || task.dueDate || undefined;
+	const dueDateValue = dueDate ? new Date(dueDate) : null;
+	const hasValidDueDate =
+		dueDateValue !== null && !Number.isNaN(dueDateValue.getTime());
+	const time = hasValidDueDate
+		? dueDateValue.toLocaleTimeString([], {
 				hour: "numeric",
 				minute: "2-digit",
 			})
 		: `Task ${index + 1}`;
 
-	const isCompleted = task.completed || task.status === "completed";
+	const isCompleted =
+		task.completed || task.status === "completed" || Boolean(task.completed_at);
 	const status: DisplayTaskStatus = isCompleted
 		? "completed"
 		: task.status === "in-progress"
