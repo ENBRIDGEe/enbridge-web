@@ -3,9 +3,10 @@ import { Link, useNavigate } from "react-router-dom";
 import { Google } from "../components/Google";
 import {
 	API_BASE_URL,
+	API_CONFIGURATION_ERROR,
+	clearAccessToken,
 	loginWithPassword,
 	registerUser,
-	setAccessToken,
 } from "../lib/api";
 import { useAuth } from "../lib/auth";
 
@@ -34,12 +35,11 @@ export function AuthPage({ mode }: AuthPageProps) {
 		setErrorMessage("");
 
 		try {
-			const token = isLogin
-				? await loginWithPassword(email, password)
-				: await registerUser({ name, email, password });
-
-			if (token.access_token) {
-				setAccessToken(token.access_token);
+			clearAccessToken();
+			if (isLogin) {
+				await loginWithPassword(email, password);
+			} else {
+				await registerUser({ name, email, password });
 			}
 
 			const profile = await refreshUser();
@@ -137,7 +137,21 @@ export function AuthPage({ mode }: AuthPageProps) {
 						) : null}
 
 						<div className="flex flex-col items-center gap-4 pt-2">
-							<a href={`${API_BASE_URL}/auth/google`}>
+							<a
+								href={
+									API_BASE_URL
+										? `${API_BASE_URL}/auth/google`
+										: "#"
+								}
+								onClick={(event) => {
+									if (!API_BASE_URL) {
+										event.preventDefault();
+										setErrorMessage(
+											API_CONFIGURATION_ERROR,
+										);
+									}
+								}}
+							>
 								<img
 									src="web_neutral_rd_na.svg"
 									alt="Sign in with Google"

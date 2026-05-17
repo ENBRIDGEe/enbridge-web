@@ -1,16 +1,14 @@
 import type { TaskRecord } from "./taskTypes";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
-const fallbackApiUrl = import.meta.env.DEV
-	? "http://localhost:8000"
-	: typeof window !== "undefined"
-		? window.location.origin
-		: "";
+const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:8000" : "";
 
 export const API_BASE_URL = (configuredApiUrl || fallbackApiUrl).replace(
 	/\/+$/,
 	"",
 );
+export const API_CONFIGURATION_ERROR =
+	"Missing VITE_API_URL. Set it in your deployment environment to the backend API origin.";
 const TOKEN_KEY = "enbridge_access_token";
 
 export type AuthTokenResponse = {
@@ -99,12 +97,8 @@ function isRecord(value: unknown): value is UnknownRecord {
 	return Boolean(value) && typeof value === "object";
 }
 
-function mergeHeaders(
-	body?: BodyInit | null,
-	auth = false,
-	overrideHeaders?: HeadersInit,
-) {
-	const headers = getHeaders(body, auth);
+function mergeHeaders(body?: BodyInit | null, overrideHeaders?: HeadersInit) {
+	const headers = getHeaders(body);
 
 	if (overrideHeaders) {
 		new Headers(overrideHeaders).forEach((value, key) => {
@@ -124,18 +118,11 @@ const DEFAULT_REQUEST_TIMEOUT_MS = 30000;
 const TASK_REQUEST_TIMEOUT_MS = 60000;
 const inFlightGetRequests = new Map<string, Promise<unknown>>();
 
-function getHeaders(body?: BodyInit | null, auth = false) {
+function getHeaders(body?: BodyInit | null) {
 	const headers = new Headers();
 
 	if (typeof body === "string") {
 		headers.set("Content-Type", "application/json");
-	}
-
-	if (auth) {
-		const token = getAccessToken();
-		if (token) {
-			headers.set("Authorization", `Bearer ${token}`);
-		}
 	}
 
 	return headers;
@@ -153,13 +140,22 @@ export function clearAccessToken() {
 	window.localStorage.removeItem(TOKEN_KEY);
 }
 
+function buildApiUrl(path: string) {
+	if (!API_BASE_URL) {
+		throw new Error(API_CONFIGURATION_ERROR);
+	}
+
+	return `${API_BASE_URL}${path}`;
+}
+
 export async function apiRequest<T>(
 	path: string,
 	options: RequestOptions = {},
 ) {
 	const method = (options.method ?? "GET").toUpperCase();
 	const canDedupe = method === "GET" && !options.body;
-	const requestKey = `${method}:${API_BASE_URL}${path}`;
+	const requestUrl = buildApiUrl(path);
+	const requestKey = `${method}:${requestUrl}`;
 
 	if (canDedupe) {
 		const existingRequest = inFlightGetRequests.get(requestKey);
@@ -187,13 +183,12 @@ async function performApiRequest<T>(
 
 	try {
 		const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
-		const response = await fetch(`${API_BASE_URL}${path}`, {
+		const response = await fetch(buildApiUrl(path), {
 			...fetchOptions,
 			signal: controller.signal,
 			credentials: "include", // Send cookies with every request
 			headers: mergeHeaders(
 				options.body ?? null,
-				options.auth,
 				options.headers,
 			),
 		});
@@ -233,7 +228,7 @@ export async function loginWithPassword(email: string, password: string) {
 	body.set("username", email);
 	body.set("password", password);
 
-	const response = await fetch(`${API_BASE_URL}/token`, {
+	const response = await fetch(buildApiUrl("/token"), {
 		method: "POST",
 		body,
 		credentials: "include",
@@ -251,7 +246,9 @@ export async function loginWithPassword(email: string, password: string) {
 		return response.json() as Promise<AuthTokenResponse>;
 	}
 
-	return {} as AuthTokenResponse;
+	throw new Error(
+		"Login did not return an API response. Check that VITE_API_URL points to the backend, not the frontend.",
+	);
 }
 
 export async function registerUser(payload: {
