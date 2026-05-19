@@ -1,7 +1,9 @@
 import type { TaskRecord } from "./taskTypes";
 
 const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
-const fallbackApiUrl = import.meta.env.DEV ? "http://localhost:8000" : "";
+const fallbackApiUrl = import.meta.env.DEV
+	? "http://localhost:8000"
+	: "https://bn8gke3pw4.execute-api.us-east-1.amazonaws.com/prod";
 
 export const API_BASE_URL = (configuredApiUrl || fallbackApiUrl).replace(
 	/\/+$/,
@@ -14,6 +16,7 @@ const TOKEN_KEY = "enbridge_access_token";
 export type AuthTokenResponse = {
 	access_token?: string;
 	token_type?: string;
+	auth_method?: "password" | "google" | "refresh";
 	message?: string;
 };
 
@@ -28,6 +31,10 @@ export type UserProfile = {
 	email?: string;
 	user_email?: string;
 	email_address?: string;
+	is_active?: boolean;
+	is_admin?: boolean;
+	created_at?: string;
+	updated_at?: string;
 	productivity_score?: number;
 	streak_count?: number;
 };
@@ -648,6 +655,45 @@ export async function updateNotificationSettings(
 	return apiRequest<NotificationSettings>("/notifications/settings", {
 		method: "PATCH",
 		body: JSON.stringify(payload),
+		auth: true,
+	});
+}
+
+export async function deleteTask(taskId: string) {
+	return apiRequest<{ message?: string }>(`/tasks/${taskId}`, {
+		method: "DELETE",
+		auth: true,
+	});
+}
+
+export async function getGoal(goalId: string) {
+	return apiRequest<GoalRecord>(`/goals/${goalId}`, {
+		method: "GET",
+		auth: true,
+	});
+}
+
+export async function updateGoal(
+	goalId: string,
+	payload: Partial<GoalCreatePayload>,
+) {
+	return apiRequest<GoalRecord>(`/goals/${goalId}`, {
+		method: "PATCH",
+		body: JSON.stringify(payload),
+		auth: true,
+	});
+}
+
+export async function deleteGoal(goalId: string) {
+	return apiRequest<{ message?: string }>(`/goals/${goalId}`, {
+		method: "DELETE",
+		auth: true,
+	});
+}
+
+export async function deleteMilestone(milestoneId: string) {
+	return apiRequest<{ message?: string }>(`/milestones/${milestoneId}`, {
+		method: "DELETE",
 		auth: true,
 	});
 }
