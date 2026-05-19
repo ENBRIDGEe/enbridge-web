@@ -194,10 +194,7 @@ async function performApiRequest<T>(
 			...fetchOptions,
 			signal: controller.signal,
 			credentials: "include", // Send cookies with every request
-			headers: mergeHeaders(
-				options.body ?? null,
-				options.headers,
-			),
+			headers: mergeHeaders(options.body ?? null, options.headers),
 		});
 
 		if (!response.ok) {
