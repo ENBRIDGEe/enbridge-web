@@ -1,7 +1,6 @@
 import type { TaskRecord } from "./taskTypes";
 
-const configuredApiUrl =
-	import.meta.env.VITE_API_URL?.trim();
+const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
 const fallbackApiUrl = import.meta.env.DEV
 	? "http://localhost:8000"
 	: "https://bn8gke3pw4.execute-api.us-east-1.amazonaws.com/prod";
