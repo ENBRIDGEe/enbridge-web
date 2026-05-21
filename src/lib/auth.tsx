@@ -7,7 +7,7 @@ import {
 	type ReactNode,
 } from "react";
 import {
-	clearAccessToken,
+	clearAllTokens,
 	fetchCurrentUser,
 	logout,
 	refreshToken,
@@ -33,20 +33,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			setIsLoading(true);
 			console.log("[Auth] Refreshing user session...");
 			try {
-				await refreshToken();
-				console.log("[Auth] Token refreshed successfully");
-			} catch (error) {
-				// Cookie refresh can fail for new visitors; the user fetch below is authoritative.
-				console.debug("[Auth] Token refresh skipped:", error);
+				// Try fetching the current user first (access token may be present)
+				const profile = await fetchCurrentUser();
+				setUser(profile);
+				console.log("[Auth] User authenticated:", profile?.email);
+				return profile;
+			} catch (err) {
+				// If fetching user failed, try to refresh tokens then fetch again
+				console.debug("[Auth] fetchCurrentUser failed, attempting token refresh", err);
+				try {
+					await refreshToken();
+				} catch (refreshErr) {
+					console.debug("[Auth] Token refresh failed:", refreshErr);
+					throw refreshErr;
+				}
+				const profile = await fetchCurrentUser();
+				setUser(profile);
+				console.log("[Auth] User authenticated:", profile?.email);
+				return profile;
 			}
-			console.log("[Auth] Fetching current user...");
-			const profile = await fetchCurrentUser();
-			setUser(profile);
-			console.log("[Auth] User authenticated:", profile?.email);
-			return profile;
 		} catch (error) {
 			console.error("[Auth] Failed to load user:", error);
-			clearAccessToken();
+			clearAllTokens();
 			setUser(null);
 			return null;
 		} finally {
@@ -56,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	function signOut() {
 		void logout();
-		clearAccessToken();
+		clearAllTokens();
 		setUser(null);
 	}
 

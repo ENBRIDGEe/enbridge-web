@@ -4,7 +4,7 @@ import { Google } from "../components/Google";
 import {
 	API_BASE_URL,
 	API_CONFIGURATION_ERROR,
-	clearAccessToken,
+	clearAllTokens,
 	loginWithPassword,
 	registerUser,
 } from "../lib/api";
@@ -35,7 +35,7 @@ export function AuthPage({ mode }: AuthPageProps) {
 		setErrorMessage("");
 
 		try {
-			clearAccessToken();
+			clearAllTokens();
 			if (isLogin) {
 				await loginWithPassword(email, password);
 			} else {
@@ -82,7 +82,7 @@ export function AuthPage({ mode }: AuthPageProps) {
 					</p>
 					<p className="mt-8 text-sm text-smoke">
 						Auth submits to the backend endpoints in the README and
-						uses the secure session cookie returned by the API.
+						uses JSON access/refresh tokens returned by the API.
 					</p>
 
 					<form className="mt-8 space-y-5" onSubmit={handleSubmit}>

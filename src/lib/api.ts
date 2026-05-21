@@ -11,7 +11,8 @@ export const API_BASE_URL = (configuredApiUrl || fallbackApiUrl).replace(
 );
 export const API_CONFIGURATION_ERROR =
 	"Missing VITE_API_URL. Set it in your deployment environment to the backend API origin.";
-const TOKEN_KEY = "enbridge_access_token";
+const ACCESS_TOKEN_KEY = "enbridge_access_token";
+const REFRESH_TOKEN_KEY = "enbridge_refresh_token";
 
 export type AuthTokenResponse = {
 	access_token?: string;
@@ -136,15 +137,32 @@ function getHeaders(body?: BodyInit | null) {
 }
 
 export function getAccessToken() {
-	return window.localStorage.getItem(TOKEN_KEY);
+	return window.localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export function setAccessToken(token: string) {
-	window.localStorage.setItem(TOKEN_KEY, token);
+	window.localStorage.setItem(ACCESS_TOKEN_KEY, token);
 }
 
 export function clearAccessToken() {
-	window.localStorage.removeItem(TOKEN_KEY);
+	window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+}
+
+export function getRefreshToken() {
+	return window.localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setRefreshToken(token: string) {
+	window.localStorage.setItem(REFRESH_TOKEN_KEY, token);
+}
+
+export function clearRefreshToken() {
+	window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export function clearAllTokens() {
+	clearAccessToken();
+	clearRefreshToken();
 }
 
 function buildApiUrl(path: string) {
@@ -190,12 +208,39 @@ async function performApiRequest<T>(
 
 	try {
 		const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
-		const response = await fetch(buildApiUrl(path), {
+		// Prepare headers and include Authorization when requested
+		const requestHeaders = mergeHeaders(options.body ?? null, options.headers);
+		if (options.auth) {
+			const at = getAccessToken();
+			if (at) requestHeaders.set("Authorization", `Bearer ${at}`);
+		}
+
+		let response = await fetch(buildApiUrl(path), {
 			...fetchOptions,
 			signal: controller.signal,
-			credentials: "include", // Send cookies with every request
-			headers: mergeHeaders(options.body ?? null, options.headers),
+			credentials: "include",
+			headers: requestHeaders,
 		});
+
+		// If unauthorized and auth was required, attempt a token refresh and retry once
+		if (response.status === 401 && options.auth) {
+			try {
+				await refreshToken();
+				const newAt = getAccessToken();
+				if (newAt) {
+					const retryHeaders = mergeHeaders(options.body ?? null, options.headers);
+					retryHeaders.set("Authorization", `Bearer ${newAt}`);
+					response = await fetch(buildApiUrl(path), {
+						...fetchOptions,
+						signal: controller.signal,
+						credentials: "include",
+						headers: retryHeaders,
+					});
+				}
+			} catch (e) {
+				// refresh failed - fall through to error handling
+			}
+		}
 
 		if (!response.ok) {
 			const errorBody = await response.text();
@@ -235,7 +280,6 @@ export async function loginWithPassword(email: string, password: string) {
 	const response = await fetch(buildApiUrl("/token"), {
 		method: "POST",
 		body,
-		credentials: "include",
 	});
 
 	if (!response.ok) {
@@ -247,7 +291,10 @@ export async function loginWithPassword(email: string, password: string) {
 
 	const contentType = response.headers.get("content-type") ?? "";
 	if (contentType.includes("application/json")) {
-		return response.json() as Promise<AuthTokenResponse>;
+		const json = (await response.json()) as AuthTokenResponse & { refresh_token?: string };
+		if (json.access_token) setAccessToken(json.access_token);
+		if ((json as any).refresh_token) setRefreshToken((json as any).refresh_token);
+		return json as Promise<AuthTokenResponse>;
 	}
 
 	throw new Error(
@@ -260,16 +307,41 @@ export async function registerUser(payload: {
 	email: string;
 	password: string;
 }) {
-	return apiRequest<AuthTokenResponse>("/register", {
+	const res = await apiRequest<AuthTokenResponse>("/register", {
 		method: "POST",
 		body: JSON.stringify(payload),
 	});
+	try {
+		if (res && typeof res === "object") {
+			const r = res as unknown as AuthTokenResponse & { refresh_token?: string };
+			if (r.access_token) setAccessToken(r.access_token);
+			if ((r as any).refresh_token) setRefreshToken((r as any).refresh_token);
+		}
+	} catch {
+		// ignore
+	}
+	return res;
 }
 
 export async function refreshToken() {
-	return apiRequest<AuthTokenResponse>("/auth/refresh", {
+	const refresh = getRefreshToken();
+	if (!refresh) throw new Error("No refresh token available");
+
+	const response = await fetch(buildApiUrl("/auth/refresh"), {
 		method: "POST",
+		headers: new Headers({ "Content-Type": "application/json" }),
+		body: JSON.stringify({ refresh_token: refresh }),
 	});
+
+	if (!response.ok) {
+		const body = await response.text();
+		throw new Error(body || `Refresh failed with status ${response.status}`);
+	}
+
+	const data = (await response.json()) as AuthTokenResponse & { refresh_token?: string };
+	if (data.access_token) setAccessToken(data.access_token);
+	if ((data as any).refresh_token) setRefreshToken((data as any).refresh_token);
+	return data;
 }
 
 function unwrapUserProfile(response: unknown): UserProfile {
@@ -699,11 +771,12 @@ export async function logout() {
 	try {
 		await apiRequest<{ message?: string }>("/logout", {
 			method: "POST",
+			auth: true,
 		});
 	} catch (error) {
 		console.error("Logout request failed:", error);
 	} finally {
 		// Always clear local tokens regardless of API success
-		clearAccessToken();
+		clearAllTokens();
 	}
 }
