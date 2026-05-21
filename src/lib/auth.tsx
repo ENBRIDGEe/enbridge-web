@@ -40,7 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 				return profile;
 			} catch (err) {
 				// If fetching user failed, try to refresh tokens then fetch again
-				console.debug("[Auth] fetchCurrentUser failed, attempting token refresh", err);
+				console.debug(
+					"[Auth] fetchCurrentUser failed, attempting token refresh",
+					err,
+				);
 				try {
 					await refreshToken();
 				} catch (refreshErr) {

@@ -1,6 +1,7 @@
 import type { TaskRecord } from "./taskTypes";
 
-const configuredApiUrl = import.meta.env.VITE_API_URL?.trim();
+const configuredApiUrl =
+	import.meta.env.VITE_API_URL?.trim();
 const fallbackApiUrl = import.meta.env.DEV
 	? "http://localhost:8000"
 	: "https://bn8gke3pw4.execute-api.us-east-1.amazonaws.com/prod";
@@ -209,7 +210,10 @@ async function performApiRequest<T>(
 	try {
 		const { timeoutMs: _timeoutMs, ...fetchOptions } = options;
 		// Prepare headers and include Authorization when requested
-		const requestHeaders = mergeHeaders(options.body ?? null, options.headers);
+		const requestHeaders = mergeHeaders(
+			options.body ?? null,
+			options.headers,
+		);
 		if (options.auth) {
 			const at = getAccessToken();
 			if (at) requestHeaders.set("Authorization", `Bearer ${at}`);
@@ -228,7 +232,10 @@ async function performApiRequest<T>(
 				await refreshToken();
 				const newAt = getAccessToken();
 				if (newAt) {
-					const retryHeaders = mergeHeaders(options.body ?? null, options.headers);
+					const retryHeaders = mergeHeaders(
+						options.body ?? null,
+						options.headers,
+					);
 					retryHeaders.set("Authorization", `Bearer ${newAt}`);
 					response = await fetch(buildApiUrl(path), {
 						...fetchOptions,
@@ -291,9 +298,12 @@ export async function loginWithPassword(email: string, password: string) {
 
 	const contentType = response.headers.get("content-type") ?? "";
 	if (contentType.includes("application/json")) {
-		const json = (await response.json()) as AuthTokenResponse & { refresh_token?: string };
+		const json = (await response.json()) as AuthTokenResponse & {
+			refresh_token?: string;
+		};
 		if (json.access_token) setAccessToken(json.access_token);
-		if ((json as any).refresh_token) setRefreshToken((json as any).refresh_token);
+		if ((json as any).refresh_token)
+			setRefreshToken((json as any).refresh_token);
 		return json as Promise<AuthTokenResponse>;
 	}
 
@@ -313,9 +323,12 @@ export async function registerUser(payload: {
 	});
 	try {
 		if (res && typeof res === "object") {
-			const r = res as unknown as AuthTokenResponse & { refresh_token?: string };
+			const r = res as unknown as AuthTokenResponse & {
+				refresh_token?: string;
+			};
 			if (r.access_token) setAccessToken(r.access_token);
-			if ((r as any).refresh_token) setRefreshToken((r as any).refresh_token);
+			if ((r as any).refresh_token)
+				setRefreshToken((r as any).refresh_token);
 		}
 	} catch {
 		// ignore
@@ -335,12 +348,17 @@ export async function refreshToken() {
 
 	if (!response.ok) {
 		const body = await response.text();
-		throw new Error(body || `Refresh failed with status ${response.status}`);
+		throw new Error(
+			body || `Refresh failed with status ${response.status}`,
+		);
 	}
 
-	const data = (await response.json()) as AuthTokenResponse & { refresh_token?: string };
+	const data = (await response.json()) as AuthTokenResponse & {
+		refresh_token?: string;
+	};
 	if (data.access_token) setAccessToken(data.access_token);
-	if ((data as any).refresh_token) setRefreshToken((data as any).refresh_token);
+	if ((data as any).refresh_token)
+		setRefreshToken((data as any).refresh_token);
 	return data;
 }
 

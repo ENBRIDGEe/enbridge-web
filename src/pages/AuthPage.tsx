@@ -44,7 +44,9 @@ export function AuthPage({ mode }: AuthPageProps) {
 
 			const profile = await refreshUser();
 			if (!profile) {
-				throw new Error("Signed in, but the profile could not be loaded.");
+				throw new Error(
+					"Signed in, but the profile could not be loaded.",
+				);
 			}
 
 			navigate("/app/dashboard", { replace: true });
